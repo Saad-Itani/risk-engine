@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Envs
+.venv/
+venv/
+env/
+risk-engine/
+
+# Local config / secrets
+.env
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Notebooks artifacts
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
