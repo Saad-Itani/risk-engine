@@ -15,17 +15,18 @@ PnlModel = Literal["linear", "exp"]
 MCMode = Literal["normal", "student_t", "bootstrap"]
 
 
+
 @dataclass(frozen=True)
 class VaRResult:
     method: Method
     confidence: float
     horizon_days: int
+    as_of: str
     portfolio_value: float
-    var_log_return: float   # positive (loss magnitude in log-return space)
-    var_dollars: float      # positive (loss magnitude in $)
+    var_log_return: float # positive (loss magnitude in log-return space)
+    var_dollars: float     # positive (loss magnitude in $)
     observations: int
     meta: dict
-
 
 class RiskEngine:
     """
@@ -85,6 +86,7 @@ class RiskEngine:
             raise ValueError("Not enough return observations after cleaning")
 
         V0 = float(port_value.iloc[-1])
+        as_of = str(port_value.index[-1])
         alpha = 1.0 - confidence
 
         if method == "historical":
@@ -95,6 +97,7 @@ class RiskEngine:
                 method=method,
                 confidence=confidence,
                 horizon_days=horizon_days,
+                as_of=as_of,
                 portfolio_value=V0,
                 var_log_return=var_log,
                 var_dollars=var_dol,
@@ -112,6 +115,7 @@ class RiskEngine:
                 method=method,
                 confidence=confidence,
                 horizon_days=horizon_days,
+                as_of=as_of,
                 portfolio_value=V0,
                 var_log_return=var_log,
                 var_dollars=var_dol,
@@ -151,6 +155,7 @@ class RiskEngine:
                 method=method,
                 confidence=confidence,
                 horizon_days=horizon_days,
+                as_of=as_of,
                 portfolio_value=V0,
                 var_log_return=var_log,
                 var_dollars=var_dol,
