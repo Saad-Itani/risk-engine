@@ -28,6 +28,23 @@ class VaRResult:
     observations: int
     meta: dict
 
+@dataclass(frozen=True)
+class ESResult:
+    method: Method
+    confidence: float
+    horizon_days: int
+    as_of: str
+    portfolio_value: float
+
+    # positive loss magnitudes
+    var_log_return: float
+    var_dollars: float
+    es_log_return: float
+    es_dollars: float
+
+    observations: int
+    meta: dict
+
 class RiskEngine:
     """
     Risk Engine v1: VaR (historical, parametric, Monte Carlo).
@@ -159,6 +176,114 @@ class RiskEngine:
                 portfolio_value=V0,
                 var_log_return=var_log,
                 var_dollars=var_dol,
+                observations=int(len(port_log_ret)),
+                meta={"mc_mode": mc_mode, "df_t": df_t if mc_mode == "student_t" else None, "symbols": symbols},
+            )
+
+        raise ValueError("method must be historical | parametric | monte_carlo")
+    
+    def es(
+        self,
+        holdings: Dict[str, float],
+        method: Method = "historical",
+        confidence: float = 0.95,
+        horizon_days: int = 5,
+        *,
+        simulations: int = 100_000,
+        mc_mode: MCMode = "bootstrap",
+        df_t: int = 6,
+        pnl_model: PnlModel = "linear",
+    ) -> ESResult:
+        """
+        Expected Shortfall (a.k.a. CVaR): average loss in the worst (1-confidence) tail.
+
+        Returns ES in:
+        - log-return loss magnitude (positive)
+        - dollar loss magnitude (positive)
+        """
+        shares, symbols, px = self._prepare_price_panel(holdings)
+
+        if not (0 < confidence < 1):
+            raise ValueError("confidence must be between 0 and 1")
+        if horizon_days < 1:
+            raise ValueError("horizon_days must be >= 1")
+
+        port_value = self._portfolio_value_series(px, shares)
+        port_log_ret = self._log_returns(port_value)
+
+        if len(port_log_ret) < max(60, horizon_days * 10):
+            raise ValueError("Not enough return observations after cleaning")
+
+        V0 = float(port_value.iloc[-1])
+        as_of = str(port_value.index[-1])
+        alpha = 1.0 - confidence
+
+        if method == "historical":
+            var_log, es_log = self._es_historical(port_log_ret, alpha, horizon_days)
+            var_dol = self._loss_from_var_log(V0, var_log, pnl_model)
+            es_dol = self._loss_from_var_log(V0, es_log, pnl_model)
+
+            return ESResult(
+                method=method,
+                confidence=confidence,
+                horizon_days=horizon_days,
+                as_of=as_of,
+                portfolio_value=V0,
+                var_log_return=var_log,
+                var_dollars=var_dol,
+                es_log_return=es_log,
+                es_dollars=es_dol,
+                observations=int(len(port_log_ret)),
+                meta={"symbols": symbols},
+            )
+
+        if method == "parametric":
+            mu = float(port_log_ret.mean())
+            sigma = float(port_log_ret.std(ddof=1))
+            var_log, es_log = self._es_parametric(mu, sigma, alpha, horizon_days)
+            var_dol = self._loss_from_var_log(V0, var_log, pnl_model)
+            es_dol = self._loss_from_var_log(V0, es_log, pnl_model)
+
+            return ESResult(
+                method=method,
+                confidence=confidence,
+                horizon_days=horizon_days,
+                as_of=as_of,
+                portfolio_value=V0,
+                var_log_return=var_log,
+                var_dollars=var_dol,
+                es_log_return=es_log,
+                es_dollars=es_dol,
+                observations=int(len(port_log_ret)),
+                meta={"mu_daily": mu, "sigma_daily": sigma, "symbols": symbols},
+            )
+
+        if method == "monte_carlo":
+            asset_log_rets = self._log_returns_df(px)
+            if len(asset_log_rets) < max(60, horizon_days * 10):
+                raise ValueError("Not enough asset return observations after cleaning")
+
+            var_log, var_dol, es_log, es_dol = self._es_monte_carlo(
+                px=px,
+                shares=shares,
+                asset_log_rets=asset_log_rets,
+                alpha=alpha,
+                horizon_days=horizon_days,
+                simulations=simulations,
+                mc_mode=mc_mode,
+                df_t=df_t,
+            )
+
+            return ESResult(
+                method=method,
+                confidence=confidence,
+                horizon_days=horizon_days,
+                as_of=as_of,
+                portfolio_value=V0,
+                var_log_return=var_log,
+                var_dollars=var_dol,
+                es_log_return=es_log,
+                es_dollars=es_dol,
                 observations=int(len(port_log_ret)),
                 meta={"mc_mode": mc_mode, "df_t": df_t if mc_mode == "student_t" else None, "symbols": symbols},
             )
@@ -358,3 +483,100 @@ class RiskEngine:
             return mu_h + (G / t_scale)
 
         raise ValueError("mc_mode must be normal | student_t | bootstrap")
+
+    @staticmethod
+    def _es_historical(port_log_ret: pd.Series, alpha: float, horizon_days: int) -> tuple[float, float]:
+        """
+        Returns (VaR_log, ES_log) as positive loss magnitudes in log-return space.
+        """
+        horizon = port_log_ret.rolling(window=horizon_days).sum().dropna()
+        if horizon.empty:
+            raise ValueError("Not enough horizon returns for ES")
+
+        q = float(horizon.quantile(alpha))     # left-tail return quantile (negative)
+        var_log = float(-q)
+
+        tail = horizon[horizon <= q]
+        if tail.empty:
+            # fallback: take at least the single worst observation
+            tail = horizon.nsmallest(1)
+
+        es_log = float(-tail.mean())
+        return var_log, es_log
+
+
+    @staticmethod
+    def _es_parametric(mu_daily: float, sigma_daily: float, alpha: float, horizon_days: int) -> tuple[float, float]:
+        """
+        Normal ES on log-returns.
+        Returns (VaR_log, ES_log) as positive loss magnitudes.
+        """
+        if sigma_daily <= 0 or not np.isfinite(sigma_daily):
+            raise ValueError("sigma_daily must be positive for parametric ES")
+
+        nd = NormalDist()
+        z = nd.inv_cdf(alpha)        # negative
+        phi = nd.pdf(z)
+
+        mu_h = mu_daily * horizon_days
+        sigma_h = sigma_daily * np.sqrt(horizon_days)
+
+        var_log = float(-(mu_h + z * sigma_h))
+        # ES loss magnitude = -E[R | R <= q_alpha]
+        # E[R | R <= q] = mu_h - sigma_h * phi/alpha
+        es_log = float(-mu_h + sigma_h * (phi / alpha))
+
+        return var_log, es_log
+
+
+    def _es_monte_carlo(
+        self,
+        *,
+        px: pd.DataFrame,
+        shares: Dict[str, float],
+        asset_log_rets: pd.DataFrame,
+        alpha: float,
+        horizon_days: int,
+        simulations: int,
+        mc_mode: MCMode,
+        df_t: int,
+    ) -> tuple[float, float, float, float]:
+        """
+        Returns (VaR_log, VaR_dol, ES_log, ES_dol) as positive loss magnitudes.
+        """
+        symbols = list(asset_log_rets.columns)
+        n = len(symbols)
+
+        p0 = px.iloc[-1].to_numpy(dtype=float)
+        q = np.array([shares[s] for s in symbols], dtype=float)
+        V0 = float(np.dot(q, p0))
+
+        mu = asset_log_rets.mean().to_numpy(dtype=float)
+        cov = asset_log_rets.cov().to_numpy(dtype=float)
+
+        mu_h = mu * horizon_days
+        cov_h = cov * horizon_days
+
+        R_h = self._simulate_horizon_returns(asset_log_rets, mu_h, cov_h, simulations, mc_mode, df_t, horizon_days)
+
+        P_T = p0 * np.exp(R_h)
+        V_T = P_T @ q
+
+        port_log = np.log(V_T / V0)
+        pnl = V_T - V0
+
+        q_log = float(np.quantile(port_log, alpha))
+        var_log = float(-q_log)
+        tail_log = port_log[port_log <= q_log]
+        if tail_log.size == 0:
+            tail_log = np.sort(port_log)[:1]
+        es_log = float(-tail_log.mean())
+
+        q_pnl = float(np.quantile(pnl, alpha))
+        var_dol = float(-q_pnl)
+        tail_pnl = pnl[pnl <= q_pnl]
+        if tail_pnl.size == 0:
+            tail_pnl = np.sort(pnl)[:1]
+        es_dol = float(-tail_pnl.mean())
+
+        return var_log, var_dol, es_log, es_dol
