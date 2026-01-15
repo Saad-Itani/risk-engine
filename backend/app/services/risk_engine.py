@@ -73,7 +73,7 @@ class RiskEngine:
         simulations: int = 100_000,
         mc_mode: MCMode = "bootstrap",  # <-- this will NOT converge to parametric
         df_t: int = 6,                  # Student-t degrees of freedom (mc_mode="student_t")
-        pnl_model: PnlModel = "linear",
+        pnl_model: PnlModel = "exp",
         return_internals: bool = False,  # Return internal calculations for component VaR
     ) -> Union[VaRResult, Tuple[VaRResult, dict]]:
         """
@@ -237,7 +237,7 @@ class RiskEngine:
         simulations: int = 100_000,
         mc_mode: MCMode = "bootstrap",
         df_t: int = 6,
-        pnl_model: PnlModel = "linear",
+        pnl_model: PnlModel = "exp",
         return_internals: bool = False,  # Return internal calculations for component VaR
     ) -> Union[ESResult, Tuple[ESResult, dict]]:
         """

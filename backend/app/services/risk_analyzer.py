@@ -106,7 +106,7 @@ class RiskAnalyzer:
         include_es: bool = True,  # Compute ES alongside VaR
         include_llm_recommendations: bool = False,  # Generate LLM recommendations
         llm_custom_instructions: Optional[str] = None,  # Custom LLM instructions
-        pnl_model: PnlModel = "linear",
+        pnl_model: PnlModel = "exp",
     ) -> RiskAnalysisResult:
         """
         Perform risk analysis on portfolio using parametric VaR decomposition.

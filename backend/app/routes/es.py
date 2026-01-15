@@ -20,7 +20,8 @@ def compute_es():
     confidence = float(body.get("confidence", 0.95))
     horizon_days = int(body.get("horizon_days", 5))
     lookback_days = int(body.get("lookback_days", 1260))
-    pnl_model = body.get("pnl_model", "exp")
+    # Force pnl_model to "exp" (ignore any user-provided value for consistency)
+    pnl_model = "exp"
 
     simulations = int(body.get("simulations", 100000))
     mc_mode = body.get("mc_mode", "bootstrap")

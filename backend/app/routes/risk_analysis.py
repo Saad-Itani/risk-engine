@@ -45,8 +45,7 @@ def analyze_risk():
             "include_backtest": false,
             "include_es": true,
             "include_llm_recommendations": false,
-            "llm_custom_instructions": "Optional custom instructions for LLM",
-            "pnl_model": "linear"
+            "llm_custom_instructions": "Optional custom instructions for LLM"
         }
 
     Returns:
@@ -121,7 +120,8 @@ def analyze_risk():
         include_es = bool(payload.get("include_es", True))
         include_llm_recommendations = bool(payload.get("include_llm_recommendations", False))
         llm_custom_instructions = payload.get("llm_custom_instructions", None)
-        pnl_model = (payload.get("pnl_model") or "linear").strip().lower()
+        # Force pnl_model to "exp" (ignore any user-provided value for consistency)
+        pnl_model = "exp"
 
         # Load prices (use longer lookback if backtesting enabled)
         lookback_days = 252 * 3 if include_backtest else 252

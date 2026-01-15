@@ -49,7 +49,8 @@ def compute_var():
         mc_mode = (payload.get("mc_mode") or "bootstrap").strip().lower()
         df_t = int(payload.get("df_t", 6))
 
-        pnl_model = (payload.get("pnl_model") or "exp").strip().lower()
+        # Force pnl_model to "exp" (ignore any user-provided value for consistency)
+        pnl_model = "exp"
 
         prices_df, db_as_of = load_prices_df(symbols, lookback_days=lookback_days)
 

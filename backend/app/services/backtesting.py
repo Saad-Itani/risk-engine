@@ -58,7 +58,7 @@ class RiskBacktester:
         simulations: int = 10_000,
         mc_mode: MCMode = "bootstrap",
         df_t: int = 6,
-        pnl_model: PnlModel = "exp",
+        pnl_model: PnlModel = "exp",  # Always use exp for accurate P&L conversion
         # optional date filtering for the BACKTEST AS-OF dates
         start_asof: Optional[str] = None,
         end_asof: Optional[str] = None,

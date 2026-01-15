@@ -80,15 +80,12 @@ if method == "monte_carlo":
     if mc_mode == "student_t":
         df_t = st.number_input("Student-t df", min_value=3, value=6, step=1)
 
-pnl_model = st.selectbox("P&L model", ["exp", "linear"])
-
 if st.button(f"Run {metric}", disabled=not bool(st.session_state.portfolio)):
     payload = {
         "method": method,
         "confidence": float(confidence),
         "horizon_days": int(horizon_days),
         "lookback_days": int(lookback_days),
-        "pnl_model": pnl_model,
         "holdings": [{"symbol": s, "shares": sh} for s, sh in st.session_state.portfolio.items()],
     }
     if method == "monte_carlo":
@@ -178,7 +175,6 @@ if st.button("Run Full Risk Analysis", disabled=not bool(st.session_state.portfo
             "risk_profile": selected_profile,
             "include_backtest": include_backtest,
             "target_var_reduction_pct": target_var_reduction,
-            "pnl_model": pnl_model,
             "holdings": [{"symbol": s, "shares": sh} for s, sh in st.session_state.portfolio.items()],
         }
 
