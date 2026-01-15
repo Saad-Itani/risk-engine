@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from statistics import NormalDist
-from typing import Dict, Literal, Optional
+from typing import Dict, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -74,7 +74,8 @@ class RiskEngine:
         mc_mode: MCMode = "bootstrap",  # <-- this will NOT converge to parametric
         df_t: int = 6,                  # Student-t degrees of freedom (mc_mode="student_t")
         pnl_model: PnlModel = "linear",
-    ) -> VaRResult:
+        return_internals: bool = False,  # Return internal calculations for component VaR
+    ) -> Union[VaRResult, Tuple[VaRResult, dict]]:
         """
         holdings: {"AAPL": shares, "MSFT": shares, ...}
 
@@ -123,22 +124,55 @@ class RiskEngine:
             )
 
         if method == "parametric":
-            mu = float(port_log_ret.mean())
-            sigma = float(port_log_ret.std(ddof=1))
-            var_log = self._var_parametric(mu, sigma, alpha, horizon_days)
-            var_dol = self._loss_from_var_log(V0, var_log, pnl_model)
+            # If internals requested, compute using covariance-based approach
+            # Otherwise, use fast portfolio-level calculation
+            if return_internals:
+                # Covariance-based parametric VaR (enables component VaR)
+                asset_log_rets = self._log_returns_df(px)
+                if len(asset_log_rets) < max(60, horizon_days * 10):
+                    raise ValueError("Not enough asset return observations after cleaning")
 
-            return VaRResult(
-                method=method,
-                confidence=confidence,
-                horizon_days=horizon_days,
-                as_of=as_of,
-                portfolio_value=V0,
-                var_log_return=var_log,
-                var_dollars=var_dol,
-                observations=int(len(port_log_ret)),
-                meta={"mu_daily": mu, "sigma_daily": sigma, "symbols": symbols},
-            )
+                parametric_result = self._var_parametric_covariance(
+                    px=px,
+                    shares=shares,
+                    asset_log_rets=asset_log_rets,
+                    alpha=alpha,
+                    horizon_days=horizon_days,
+                    return_internals=True,
+                )
+                var_log, internals = parametric_result
+                var_dol = self._loss_from_var_log(V0, var_log, pnl_model)
+
+                result = VaRResult(
+                    method=method,
+                    confidence=confidence,
+                    horizon_days=horizon_days,
+                    as_of=as_of,
+                    portfolio_value=V0,
+                    var_log_return=var_log,
+                    var_dollars=var_dol,
+                    observations=int(len(asset_log_rets)),
+                    meta={"symbols": symbols},
+                )
+                return result, internals
+            else:
+                # Fast portfolio-level calculation (no internals)
+                mu = float(port_log_ret.mean())
+                sigma = float(port_log_ret.std(ddof=1))
+                var_log = self._var_parametric(mu, sigma, alpha, horizon_days)
+                var_dol = self._loss_from_var_log(V0, var_log, pnl_model)
+
+                return VaRResult(
+                    method=method,
+                    confidence=confidence,
+                    horizon_days=horizon_days,
+                    as_of=as_of,
+                    portfolio_value=V0,
+                    var_log_return=var_log,
+                    var_dollars=var_dol,
+                    observations=int(len(port_log_ret)),
+                    meta={"mu_daily": mu, "sigma_daily": sigma, "symbols": symbols},
+                )
 
         if method == "monte_carlo":
             # Work from asset log returns, but revalue portfolio exactly at horizon
@@ -146,7 +180,7 @@ class RiskEngine:
             if len(asset_log_rets) < max(60, horizon_days * 10):
                 raise ValueError("Not enough asset return observations after cleaning")
 
-            var_log, var_dol = self._var_monte_carlo(
+            mc_result = self._var_monte_carlo(
                 px=px,
                 shares=shares,
                 asset_log_rets=asset_log_rets,
@@ -155,7 +189,14 @@ class RiskEngine:
                 simulations=simulations,
                 mc_mode=mc_mode,
                 df_t=df_t,
+                return_internals=return_internals,
             )
+
+            if return_internals:
+                var_log, var_dol, internals = mc_result
+            else:
+                var_log, var_dol = mc_result
+                internals = None
 
             # For consistency with other methods, apply pnl_model ONLY if you want
             # to force all methods through the same conversion. MC already computed $ loss.
@@ -168,7 +209,7 @@ class RiskEngine:
             else:
                 raise ValueError("pnl_model must be linear | exp")
 
-            return VaRResult(
+            result = VaRResult(
                 method=method,
                 confidence=confidence,
                 horizon_days=horizon_days,
@@ -179,6 +220,10 @@ class RiskEngine:
                 observations=int(len(port_log_ret)),
                 meta={"mc_mode": mc_mode, "df_t": df_t if mc_mode == "student_t" else None, "symbols": symbols},
             )
+
+            if return_internals:
+                return result, internals
+            return result
 
         raise ValueError("method must be historical | parametric | monte_carlo")
     
@@ -193,7 +238,8 @@ class RiskEngine:
         mc_mode: MCMode = "bootstrap",
         df_t: int = 6,
         pnl_model: PnlModel = "linear",
-    ) -> ESResult:
+        return_internals: bool = False,  # Return internal calculations for component VaR
+    ) -> Union[ESResult, Tuple[ESResult, dict]]:
         """
         Expected Shortfall (a.k.a. CVaR): average loss in the worst (1-confidence) tail.
 
@@ -238,32 +284,68 @@ class RiskEngine:
             )
 
         if method == "parametric":
-            mu = float(port_log_ret.mean())
-            sigma = float(port_log_ret.std(ddof=1))
-            var_log, es_log = self._es_parametric(mu, sigma, alpha, horizon_days)
-            var_dol = self._loss_from_var_log(V0, var_log, pnl_model)
-            es_dol = self._loss_from_var_log(V0, es_log, pnl_model)
+            # If internals requested, compute using covariance-based approach
+            # Otherwise, use fast portfolio-level calculation
+            if return_internals:
+                # Covariance-based parametric ES (enables component VaR)
+                asset_log_rets = self._log_returns_df(px)
+                if len(asset_log_rets) < max(60, horizon_days * 10):
+                    raise ValueError("Not enough asset return observations after cleaning")
 
-            return ESResult(
-                method=method,
-                confidence=confidence,
-                horizon_days=horizon_days,
-                as_of=as_of,
-                portfolio_value=V0,
-                var_log_return=var_log,
-                var_dollars=var_dol,
-                es_log_return=es_log,
-                es_dollars=es_dol,
-                observations=int(len(port_log_ret)),
-                meta={"mu_daily": mu, "sigma_daily": sigma, "symbols": symbols},
-            )
+                parametric_result = self._es_parametric_covariance(
+                    px=px,
+                    shares=shares,
+                    asset_log_rets=asset_log_rets,
+                    alpha=alpha,
+                    horizon_days=horizon_days,
+                    return_internals=True,
+                )
+                var_log, es_log, internals = parametric_result
+                var_dol = self._loss_from_var_log(V0, var_log, pnl_model)
+                es_dol = self._loss_from_var_log(V0, es_log, pnl_model)
+
+                result = ESResult(
+                    method=method,
+                    confidence=confidence,
+                    horizon_days=horizon_days,
+                    as_of=as_of,
+                    portfolio_value=V0,
+                    var_log_return=var_log,
+                    var_dollars=var_dol,
+                    es_log_return=es_log,
+                    es_dollars=es_dol,
+                    observations=int(len(asset_log_rets)),
+                    meta={"symbols": symbols},
+                )
+                return result, internals
+            else:
+                # Fast portfolio-level calculation (no internals)
+                mu = float(port_log_ret.mean())
+                sigma = float(port_log_ret.std(ddof=1))
+                var_log, es_log = self._es_parametric(mu, sigma, alpha, horizon_days)
+                var_dol = self._loss_from_var_log(V0, var_log, pnl_model)
+                es_dol = self._loss_from_var_log(V0, es_log, pnl_model)
+
+                return ESResult(
+                    method=method,
+                    confidence=confidence,
+                    horizon_days=horizon_days,
+                    as_of=as_of,
+                    portfolio_value=V0,
+                    var_log_return=var_log,
+                    var_dollars=var_dol,
+                    es_log_return=es_log,
+                    es_dollars=es_dol,
+                    observations=int(len(port_log_ret)),
+                    meta={"mu_daily": mu, "sigma_daily": sigma, "symbols": symbols},
+                )
 
         if method == "monte_carlo":
             asset_log_rets = self._log_returns_df(px)
             if len(asset_log_rets) < max(60, horizon_days * 10):
                 raise ValueError("Not enough asset return observations after cleaning")
 
-            var_log, var_dol, es_log, es_dol = self._es_monte_carlo(
+            mc_result = self._es_monte_carlo(
                 px=px,
                 shares=shares,
                 asset_log_rets=asset_log_rets,
@@ -272,9 +354,16 @@ class RiskEngine:
                 simulations=simulations,
                 mc_mode=mc_mode,
                 df_t=df_t,
+                return_internals=return_internals,
             )
 
-            return ESResult(
+            if return_internals:
+                var_log, var_dol, es_log, es_dol, internals = mc_result
+            else:
+                var_log, var_dol, es_log, es_dol = mc_result
+                internals = None
+
+            result = ESResult(
                 method=method,
                 confidence=confidence,
                 horizon_days=horizon_days,
@@ -287,6 +376,10 @@ class RiskEngine:
                 observations=int(len(port_log_ret)),
                 meta={"mc_mode": mc_mode, "df_t": df_t if mc_mode == "student_t" else None, "symbols": symbols},
             )
+
+            if return_internals:
+                return result, internals
+            return result
 
         raise ValueError("method must be historical | parametric | monte_carlo")
 
@@ -344,6 +437,74 @@ class RiskEngine:
         sigma_h = sigma_daily * np.sqrt(horizon_days)
         return float(-(mu_h + z * sigma_h))
 
+    def _var_parametric_covariance(
+        self,
+        *,
+        px: pd.DataFrame,
+        shares: Dict[str, float],
+        asset_log_rets: pd.DataFrame,
+        alpha: float,
+        horizon_days: int,
+        return_internals: bool = True,
+    ) -> tuple[float, dict]:
+        """
+        Covariance-based parametric VaR (enables component VaR decomposition).
+
+        Uses portfolio variance formula: σ²_p = w^T Σ_h w
+        Then VaR = -μ_h + z * σ_p where z is the quantile.
+
+        Returns:
+            (var_log, internals_dict) where internals contains covariance matrix for component VaR.
+        """
+        symbols = list(asset_log_rets.columns)
+        n = len(symbols)
+
+        # Initial (as-of) prices
+        p0 = px.iloc[-1].to_numpy(dtype=float)  # shape (n,)
+        q = np.array([shares[s] for s in symbols], dtype=float)  # shares aligned with columns
+        V0 = float(np.dot(q, p0))
+
+        # Historical stats (same as Monte Carlo)
+        mu = asset_log_rets.mean().to_numpy(dtype=float)  # daily mean vector
+        cov = asset_log_rets.cov().to_numpy(dtype=float)  # daily covariance matrix
+
+        # Horizon scaling (iid assumption)
+        mu_h = mu * horizon_days
+        cov_h = cov * horizon_days
+
+        # Position weights
+        position_values = q * p0
+        weights = position_values / V0
+
+        # Portfolio mean and variance
+        portfolio_mu = float(weights @ mu_h)
+        portfolio_variance = float(weights @ cov_h @ weights)
+        portfolio_volatility = float(np.sqrt(portfolio_variance))
+
+        # Parametric VaR: VaR = -μ_h + z * σ_p
+        z = NormalDist().inv_cdf(alpha)  # Negative at alpha (e.g., -1.645 for 95%)
+        var_log = float(-(portfolio_mu + z * portfolio_volatility))
+
+        if return_internals:
+            internals = {
+                "symbols": symbols,
+                "weights": weights,
+                "mu_daily": mu,
+                "mu_horizon": mu_h,  # Horizon-scaled mean
+                "cov_daily": cov,
+                "cov_horizon": cov_h,  # Horizon-scaled covariance
+                "prices": p0,
+                "shares": q,
+                "portfolio_value": V0,
+                "portfolio_mu": portfolio_mu,
+                "portfolio_volatility": portfolio_volatility,
+                "z_quantile": z,  # Normal quantile for VaR calculation
+                "horizon_days": horizon_days,
+            }
+            return var_log, internals
+
+        return var_log, {}
+
     @staticmethod
     def _loss_from_var_log(V0: float, var_log: float, pnl_model: PnlModel) -> float:
         if pnl_model == "linear":
@@ -369,10 +530,21 @@ class RiskEngine:
         simulations: int,
         mc_mode: MCMode,
         df_t: int,
-    ) -> tuple[float, float]:
+        return_internals: bool = False,
+    ) -> Union[tuple[float, float], tuple[float, float, dict]]:
         """
         Returns:
-          (VaR_log_return, VaR_dollars) where both are positive loss magnitudes.
+          If return_internals=False: (VaR_log_return, VaR_dollars) where both are positive loss magnitudes.
+          If return_internals=True: (VaR_log_return, VaR_dollars, internals_dict)
+            where internals_dict contains: {
+              "symbols": list of symbols,
+              "weights": weight vector (position_value[i] / total_portfolio_value),
+              "mu_daily": daily mean returns vector,
+              "cov_daily": daily covariance matrix,
+              "prices": current prices vector,
+              "shares": shares vector,
+              "portfolio_value": total portfolio value
+            }
 
         Simulation is done by simulating HORIZON log-returns for each asset,
         then revaluing the portfolio exactly: V_T = sum(q_i * P0_i * exp(r_i)).
@@ -410,6 +582,24 @@ class RiskEngine:
         # Dollar loss magnitude from exact revaluation
         pnl = V_T - V0
         var_dol = float(-np.quantile(pnl, alpha))
+
+        if return_internals:
+            # Calculate position weights
+            position_values = q * p0  # value of each position
+            weights = position_values / V0  # weight vector
+
+            internals = {
+                "symbols": symbols,
+                "weights": weights,
+                "mu_daily": mu,
+                "cov_daily": cov,
+                "cov_horizon": cov_h,  # Horizon-scaled covariance
+                "prices": p0,
+                "shares": q,
+                "portfolio_value": V0,
+                "horizon_days": horizon_days,
+            }
+            return var_log, var_dol, internals
 
         return var_log, var_dol
 
@@ -528,6 +718,81 @@ class RiskEngine:
 
         return var_log, es_log
 
+    def _es_parametric_covariance(
+        self,
+        *,
+        px: pd.DataFrame,
+        shares: Dict[str, float],
+        asset_log_rets: pd.DataFrame,
+        alpha: float,
+        horizon_days: int,
+        return_internals: bool = True,
+    ) -> tuple[float, float, dict]:
+        """
+        Covariance-based parametric ES (enables component VaR decomposition).
+
+        Uses portfolio variance formula: σ²_p = w^T Σ_h w
+        Then:
+          VaR = -μ_h + z * σ_p
+          ES = -μ_h + σ_p * (φ / α)
+        where φ is the standard normal PDF at z.
+
+        Returns:
+            (var_log, es_log, internals_dict)
+        """
+        symbols = list(asset_log_rets.columns)
+        n = len(symbols)
+
+        # Initial (as-of) prices
+        p0 = px.iloc[-1].to_numpy(dtype=float)  # shape (n,)
+        q = np.array([shares[s] for s in symbols], dtype=float)  # shares aligned with columns
+        V0 = float(np.dot(q, p0))
+
+        # Historical stats (same as Monte Carlo)
+        mu = asset_log_rets.mean().to_numpy(dtype=float)  # daily mean vector
+        cov = asset_log_rets.cov().to_numpy(dtype=float)  # daily covariance matrix
+
+        # Horizon scaling (iid assumption)
+        mu_h = mu * horizon_days
+        cov_h = cov * horizon_days
+
+        # Position weights
+        position_values = q * p0
+        weights = position_values / V0
+
+        # Portfolio mean and variance
+        portfolio_mu = float(weights @ mu_h)
+        portfolio_variance = float(weights @ cov_h @ weights)
+        portfolio_volatility = float(np.sqrt(portfolio_variance))
+
+        # Parametric VaR and ES
+        nd = NormalDist()
+        z = nd.inv_cdf(alpha)  # Negative at alpha (e.g., -1.645 for 95%)
+        phi = nd.pdf(z)
+
+        var_log = float(-(portfolio_mu + z * portfolio_volatility))
+        es_log = float(-portfolio_mu + portfolio_volatility * (phi / alpha))
+
+        if return_internals:
+            internals = {
+                "symbols": symbols,
+                "weights": weights,
+                "mu_daily": mu,
+                "mu_horizon": mu_h,  # Horizon-scaled mean
+                "cov_daily": cov,
+                "cov_horizon": cov_h,  # Horizon-scaled covariance
+                "prices": p0,
+                "shares": q,
+                "portfolio_value": V0,
+                "portfolio_mu": portfolio_mu,
+                "portfolio_volatility": portfolio_volatility,
+                "z_quantile": z,  # Normal quantile for VaR calculation
+                "horizon_days": horizon_days,
+            }
+            return var_log, es_log, internals
+
+        return var_log, es_log, {}
+
 
     def _es_monte_carlo(
         self,
@@ -540,9 +805,11 @@ class RiskEngine:
         simulations: int,
         mc_mode: MCMode,
         df_t: int,
-    ) -> tuple[float, float, float, float]:
+        return_internals: bool = False,
+    ) -> Union[tuple[float, float, float, float], tuple[float, float, float, float, dict]]:
         """
         Returns (VaR_log, VaR_dol, ES_log, ES_dol) as positive loss magnitudes.
+        If return_internals=True, also returns internals dict with covariance matrix, weights, etc.
         """
         symbols = list(asset_log_rets.columns)
         n = len(symbols)
@@ -578,5 +845,23 @@ class RiskEngine:
         if tail_pnl.size == 0:
             tail_pnl = np.sort(pnl)[:1]
         es_dol = float(-tail_pnl.mean())
+
+        if return_internals:
+            # Calculate position weights
+            position_values = q * p0
+            weights = position_values / V0
+
+            internals = {
+                "symbols": symbols,
+                "weights": weights,
+                "mu_daily": mu,
+                "cov_daily": cov,
+                "cov_horizon": cov_h,  # Horizon-scaled covariance
+                "prices": p0,
+                "shares": q,
+                "portfolio_value": V0,
+                "horizon_days": horizon_days,
+            }
+            return var_log, var_dol, es_log, es_dol, internals
 
         return var_log, var_dol, es_log, es_dol

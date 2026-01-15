@@ -25,3 +25,8 @@ instance/
 # OS
 .DS_Store
 Thumbs.db
+
+# Temp files
+tmpclaude-*/
+tmpclaude-*-cwd
+
