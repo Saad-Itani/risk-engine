@@ -34,10 +34,12 @@ export function ComponentVaRTable({ components }: ComponentVaRTableProps) {
     return multiplier * (a[sortField] - b[sortField])
   })
 
-  const SortButton = ({ field, label }: { field: SortField; label: string }) => (
+  const SortButton = ({ field, label, title }: { field: SortField; label: string; title?: string }) => (
     <button
       onClick={() => handleSort(field)}
       className="flex items-center gap-1 hover:text-foreground transition-colors"
+      title={title}
+      style={title ? { cursor: 'help' } : undefined}
     >
       {label}
       <ArrowUpDown
@@ -50,25 +52,41 @@ export function ComponentVaRTable({ components }: ComponentVaRTableProps) {
   )
 
   return (
-    <div className="backdrop-blur-md bg-accent/10 border border-white/10 rounded-lg overflow-hidden">
+    <div className="border border-border rounded overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="terminal-table">
           <thead>
-            <tr className="border-b border-border bg-accent/20">
-              <th className="text-left px-4 py-3 font-semibold text-sm">
-                <SortButton field="symbol" label="Symbol" />
+            <tr>
+              <th className="text-left">
+                <SortButton field="symbol" label="SYMBOL" />
               </th>
-              <th className="text-right px-4 py-3 font-semibold text-sm">
-                <SortButton field="weight" label="Weight" />
+              <th className="text-right">
+                <SortButton
+                  field="weight"
+                  label="WEIGHT"
+                  title="Position value as percentage of total portfolio value"
+                />
               </th>
-              <th className="text-right px-4 py-3 font-semibold text-sm">
-                <SortButton field="component_var_dollars" label="Component VaR" />
+              <th className="text-right">
+                <SortButton
+                  field="component_var_dollars"
+                  label="COMPONENT VAR"
+                  title="This position's contribution to total portfolio VaR (sum of all = total VaR)"
+                />
               </th>
-              <th className="text-right px-4 py-3 font-semibold text-sm">
-                Marginal VaR
+              <th
+                className="text-right"
+                title="Change in portfolio VaR from a 1% increase in this position's weight"
+                style={{ cursor: 'help' }}
+              >
+                MARGINAL VAR
               </th>
-              <th className="text-right px-4 py-3 font-semibold text-sm">
-                <SortButton field="percentage_contribution" label="% Contribution" />
+              <th className="text-right">
+                <SortButton
+                  field="percentage_contribution"
+                  label="% CONTRIBUTION"
+                  title="Percentage of total portfolio VaR attributable to this position"
+                />
               </th>
             </tr>
           </thead>
@@ -83,7 +101,7 @@ export function ComponentVaRTable({ components }: ComponentVaRTableProps) {
 
               const riskColors = {
                 high: 'bg-red-500/10 border-l-4 border-l-red-500',
-                medium: 'bg-orange-500/10 border-l-4 border-l-orange-500',
+                medium: 'bg-primary/10 border-l-4 border-l-primary',
                 low: '',
               }
 
@@ -96,24 +114,23 @@ export function ComponentVaRTable({ components }: ComponentVaRTableProps) {
                     riskColors[riskLevel]
                   )}
                 >
-                  <td className="px-4 py-3 font-medium">{component.symbol}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">
+                  <td className="font-bold text-terminal-cyan mono">{component.symbol}</td>
+                  <td className="text-right data-cell">
                     {formatPercentage(component.weight)}
                   </td>
-                  <td className="px-4 py-3 text-right font-medium">
+                  <td className="text-right data-cell">
                     {formatCurrency(component.component_var_dollars)}
                   </td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">
+                  <td className="text-right data-cell">
                     {formatCurrency(component.marginal_var_dollars)}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="text-right">
                     <span
                       className={cn(
-                        'inline-block px-2 py-1 rounded text-sm font-semibold',
-                        riskLevel === 'high' && 'bg-red-500/20 text-red-700 dark:text-red-400',
-                        riskLevel === 'medium' &&
-                          'bg-orange-500/20 text-orange-700 dark:text-orange-400',
-                        riskLevel === 'low' && 'bg-blue-500/20 text-blue-700 dark:text-blue-400'
+                        'inline-block px-2 py-1 text-xs font-bold mono',
+                        riskLevel === 'high' && 'text-red-500',
+                        riskLevel === 'medium' && 'text-primary',
+                        riskLevel === 'low' && 'text-terminal-cyan'
                       )}
                     >
                       {formatPercentage(component.percentage_contribution)}

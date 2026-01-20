@@ -10,49 +10,52 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'portfolio' | 'metrics' | 'analysis'>('portfolio')
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <header className="glass-card m-4 rounded-xl p-4">
+    <div className="min-h-screen max-w-[1800px] mx-auto">
+      {/* Header - Bloomberg Terminal Style */}
+      <header className="terminal-card m-3 p-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Risk Engine
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-bloomberg mono tracking-tight">
+              RISK_ENGINE
+            </h1>
+            <span className="text-xs text-muted-foreground mono">v1.0</span>
+          </div>
           <button
             onClick={toggleTheme}
-            className="rounded-lg p-2 hover:bg-secondary transition-colors"
+            className="rounded p-2 hover:bg-secondary transition-all duration-150 border border-transparent hover:border-primary/30"
             aria-label="Toggle theme"
           >
-            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="glass-card mx-4 mb-4 rounded-xl p-2">
-        <div className="flex gap-2">
+      {/* Tabs - Compact Terminal Style */}
+      <div className="terminal-card mx-3 mb-3 p-2">
+        <div className="flex gap-1">
           <TabButton
             active={activeTab === 'portfolio'}
             onClick={() => setActiveTab('portfolio')}
           >
-            Portfolio Builder
+            PORTFOLIO
           </TabButton>
           <TabButton
             active={activeTab === 'metrics'}
             onClick={() => setActiveTab('metrics')}
           >
-            Risk Metrics
+            VAR CALC
           </TabButton>
           <TabButton
             active={activeTab === 'analysis'}
             onClick={() => setActiveTab('analysis')}
           >
-            Risk Analysis
+            ANALYSIS
           </TabButton>
         </div>
       </div>
 
-      {/* Content */}
-      <main className="mx-4 mb-4">
+      {/* Content - Compact spacing */}
+      <main className="mx-3 mb-3">
         {activeTab === 'portfolio' && <PortfolioBuilder />}
 
         {activeTab === 'metrics' && <RiskMetricsPanel />}
@@ -75,10 +78,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded-lg font-medium transition-all ${
+      className={`px-4 py-2 rounded font-semibold text-xs mono tracking-wide transition-all duration-150 ${
         active
-          ? 'bg-primary text-primary-foreground shadow-lg'
-          : 'hover:bg-secondary text-muted-foreground'
+          ? 'bg-primary text-black border border-primary'
+          : 'bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
       }`}
     >
       {children}

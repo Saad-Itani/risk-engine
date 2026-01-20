@@ -42,6 +42,14 @@ def compute_es():
         pnl_model=pnl_model,
     )
 
+    # Add weights snapshot for UI (same as /var)
+    last_prices = prices[symbols].ffill().dropna().iloc[-1]
+    portfolio_value = float(res.portfolio_value)
+    weights = {
+        s: float((last_prices[s] * holdings[s]) / portfolio_value)
+        for s in symbols
+    }
+
     # return holdings as list (same style as /var)
     return jsonify(
         {
@@ -49,6 +57,7 @@ def compute_es():
             "confidence": res.confidence,
             "horizon_days": res.horizon_days,
             "as_of": res.as_of,
+            "db_as_of": as_of,
             "portfolio_value": res.portfolio_value,
             "var_log_return": res.var_log_return,
             "var_dollars": res.var_dollars,
@@ -56,6 +65,6 @@ def compute_es():
             "es_dollars": res.es_dollars,
             "observations": res.observations,
             "meta": res.meta,
-            "holdings": [{"symbol": k, "shares": v} for k, v in holdings.items()],
+            "holdings": [{"symbol": s, "shares": holdings[s], "weight": weights[s]} for s in symbols],
         }
     )

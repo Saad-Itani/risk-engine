@@ -18,16 +18,16 @@ export function ComponentVaRChart({ components }: ComponentVaRChartProps) {
       weight: c.weight * 100,
     }))
 
-  // Color gradient based on contribution
+  // Color gradient based on contribution - Bloomberg Terminal style
   const getBarColor = (value: number) => {
-    if (value > 30) return '#ef4444' // red-500
-    if (value > 20) return '#f97316' // orange-500
-    if (value > 10) return '#eab308' // yellow-500
-    return '#3b82f6' // blue-500
+    if (value > 30) return '#ef4444' // red-500 - High risk
+    if (value > 20) return '#FF6600' // Bloomberg orange - Medium risk
+    if (value > 10) return '#22d3ee' // cyan-400 - Low-medium risk
+    return '#06b6d4' // cyan-500 - Low risk
   }
 
   return (
-    <div className="w-full h-80">
+    <div className="w-full h-64">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={sortedData}
@@ -56,10 +56,12 @@ export function ComponentVaRChart({ components }: ComponentVaRChartProps) {
               return [value, name]
             }}
             contentStyle={{
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '8px',
+              backgroundColor: 'hsl(0 0% 10%)',
+              border: '1px solid hsl(0 0% 20%)',
+              borderRadius: '0.25rem',
               color: '#fff',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: '12px',
             }}
           />
           <Bar dataKey="contribution" radius={[0, 8, 8, 0]}>

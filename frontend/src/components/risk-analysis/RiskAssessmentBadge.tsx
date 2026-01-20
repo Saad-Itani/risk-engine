@@ -61,45 +61,40 @@ export function RiskAssessmentBadge({
   return (
     <div
       className={cn(
-        'rounded-xl border-2 p-6 backdrop-blur-md animate-fade-in',
+        'terminal-card p-4 border-2',
         colors.bg,
         colors.border
       )}
     >
-      <div className="flex items-start gap-4">
-        <Icon className={cn('w-12 h-12 flex-shrink-0', colors.icon)} />
+      <div className="flex items-center gap-3">
+        <Icon className={cn('w-8 h-8 flex-shrink-0', colors.icon)} />
         <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className={cn('text-2xl font-bold', colors.text)}>
-              Risk Level: {risk.level}
-            </h3>
-          </div>
-          <p className="text-sm text-foreground/80 mb-4">
-            {risk.level === 'LOW' &&
-              'Your portfolio risk is within acceptable limits. The potential loss is relatively small.'}
-            {risk.level === 'MODERATE' &&
-              'Your portfolio has moderate risk. Consider diversification to reduce exposure.'}
-            {risk.level === 'HIGH' &&
-              'Your portfolio carries high risk. Review your positions and consider risk reduction.'}
-            {risk.level === 'SEVERE' &&
-              'Your portfolio has severe risk exposure. Immediate action recommended to reduce risk.'}
+          <h3 className={cn('text-lg font-bold mono uppercase', colors.text)}>
+            Risk Level: {risk.level}
+          </h3>
+          <p className="text-xs text-foreground/70 mt-1">
+            {risk.level === 'LOW' && 'Portfolio risk within acceptable limits'}
+            {risk.level === 'MODERATE' && 'Portfolio has moderate risk. Consider diversification to reduce exposure.'}
+            {risk.level === 'HIGH' && 'Portfolio carries high risk. Review positions and consider risk reduction.'}
+            {risk.level === 'SEVERE' && 'Portfolio has severe risk exposure. Immediate action recommended'}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <div>
-              <span className="text-muted-foreground">VaR: </span>
-              <span className="font-semibold">{formatPercentage(varPct)}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Max Weight: </span>
-              <span className="font-semibold">
-                {formatPercentage(maxWeight)} ({maxWeightSymbol})
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Effective N: </span>
-              <span className="font-semibold">{effectiveN.toFixed(2)}</span>
-            </div>
-          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 text-xs mt-3 pt-3 border-t border-border/50">
+        <div>
+          <span className="text-muted-foreground">VaR: </span>
+          <span className="font-bold mono">{formatPercentage(varPct)}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Max Weight: </span>
+          <span className="font-bold mono">
+            {formatPercentage(maxWeight)} ({maxWeightSymbol})
+          </span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Effective N: </span>
+          <span className="font-bold mono">{effectiveN.toFixed(2)}</span>
         </div>
       </div>
     </div>

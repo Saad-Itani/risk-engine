@@ -79,101 +79,104 @@ export function RiskMetricsPanel() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Risk Metrics</h2>
-        <p className="text-muted-foreground">
-          Calculate Value at Risk (VaR) or Expected Shortfall (ES) for your portfolio.
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-bloomberg mono">RISK METRICS</h2>
+        <p className="text-xs text-muted-foreground mt-1">
+          Calculate Value at Risk (VaR) or Expected Shortfall (ES)
         </p>
       </div>
 
-      {/* Configuration */}
-      <GlassCard>
-        <h3 className="text-lg font-semibold mb-4">Configuration</h3>
+      {/* Side-by-side layout: Configuration + Results */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {/* Configuration - 1/3 width */}
+        <GlassCard className="lg:col-span-1">
+          <h3 className="text-sm font-semibold mb-3 text-terminal-cyan mono">CONFIG</h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Metric Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="metric">Risk Metric</Label>
-            <Select
-              id="metric"
-              value={metric}
-              onChange={(e) => setMetric(e.target.value as Metric)}
-            >
-              <option value="var">Value at Risk (VaR)</option>
-              <option value="es">Expected Shortfall (ES / CVaR)</option>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {metric === 'var'
-                ? 'Maximum potential loss at a given confidence level'
-                : 'Average loss beyond VaR threshold'}
-            </p>
+          <div className="space-y-3">
+            {/* Metric Selection */}
+            <div className="space-y-1">
+              <Label htmlFor="metric" className="text-xs uppercase">Metric</Label>
+              <Select
+                id="metric"
+                value={metric}
+                onChange={(e) => setMetric(e.target.value as Metric)}
+                className="h-8 text-sm"
+              >
+                <option value="var">VaR</option>
+                <option value="es">ES (CVaR)</option>
+              </Select>
+            </div>
+
+            {/* Method Selection */}
+            <div className="space-y-1">
+              <Label htmlFor="method" className="text-xs uppercase">Method</Label>
+              <Select
+                id="method"
+                value={method}
+                onChange={(e) => setMethod(e.target.value as Method)}
+                className="h-8 text-sm"
+              >
+                {VAR_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Confidence Level */}
+            <div className="space-y-1">
+              <Label className="text-xs uppercase">Confidence: <span className="text-terminal-cyan mono">{formatPercentage(confidence)}</span></Label>
+              <Slider
+                min={0.90}
+                max={0.99}
+                step={0.01}
+                value={confidence}
+                onChange={(e) => setConfidence(parseFloat(e.target.value))}
+              />
+            </div>
+
+            {/* Horizon Days */}
+            <div className="space-y-1">
+              <Label htmlFor="horizon" className="text-xs uppercase">Horizon (days)</Label>
+              <Input
+                id="horizon"
+                type="number"
+                min={1}
+                value={horizonDays}
+                onChange={(e) => setHorizonDays(parseInt(e.target.value))}
+                className="h-8 text-sm mono"
+              />
+            </div>
+
+            {/* Lookback Days */}
+            <div className="space-y-1">
+              <Label htmlFor="lookback" className="text-xs uppercase">Lookback (days)</Label>
+              <Input
+                id="lookback"
+                type="number"
+                min={100}
+                value={lookbackDays}
+                onChange={(e) => setLookbackDays(parseInt(e.target.value))}
+                className="h-8 text-sm mono"
+              />
+            </div>
           </div>
 
-          {/* Method Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="method">Calculation Method</Label>
-            <Select
-              id="method"
-              value={method}
-              onChange={(e) => setMethod(e.target.value as Method)}
-            >
-              {VAR_METHODS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </Select>
-          </div>
+          {/* Monte Carlo Options */}
+          {method === 'monte_carlo' && (
+            <div className="pt-3 mt-3 border-t border-border space-y-3">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground">Monte Carlo</h4>
 
-          {/* Confidence Level */}
-          <div className="space-y-2">
-            <Label>Confidence Level: {formatPercentage(confidence)}</Label>
-            <Slider
-              min={0.90}
-              max={0.99}
-              step={0.01}
-              value={confidence}
-              onChange={(e) => setConfidence(parseFloat(e.target.value))}
-            />
-          </div>
-
-          {/* Horizon Days */}
-          <div className="space-y-2">
-            <Label htmlFor="horizon">Time Horizon (days)</Label>
-            <Input
-              id="horizon"
-              type="number"
-              min={1}
-              value={horizonDays}
-              onChange={(e) => setHorizonDays(parseInt(e.target.value))}
-            />
-          </div>
-
-          {/* Lookback Days */}
-          <div className="space-y-2">
-            <Label htmlFor="lookback">Historical Lookback (days)</Label>
-            <Input
-              id="lookback"
-              type="number"
-              min={100}
-              value={lookbackDays}
-              onChange={(e) => setLookbackDays(parseInt(e.target.value))}
-            />
-          </div>
-        </div>
-
-        {/* Monte Carlo Options */}
-        {method === 'monte_carlo' && (
-          <div className="mt-6 pt-6 border-t border-border">
-            <h4 className="font-semibold mb-4">Monte Carlo Options</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="mcMode">Distribution</Label>
+              <div className="space-y-1">
+                <Label htmlFor="mcMode" className="text-xs uppercase">Distribution</Label>
                 <Select
                   id="mcMode"
                   value={mcMode}
                   onChange={(e) => setMcMode(e.target.value as typeof mcMode)}
+                  className="h-8 text-sm"
                 >
                   {MC_MODES.map((mode) => (
                     <option key={mode.value} value={mode.value}>
@@ -183,8 +186,8 @@ export function RiskMetricsPanel() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="simulations">Simulations</Label>
+              <div className="space-y-1">
+                <Label htmlFor="simulations" className="text-xs uppercase">Simulations</Label>
                 <Input
                   id="simulations"
                   type="number"
@@ -192,51 +195,66 @@ export function RiskMetricsPanel() {
                   step={10000}
                   value={simulations}
                   onChange={(e) => setSimulations(parseInt(e.target.value))}
+                  className="h-8 text-sm mono"
                 />
               </div>
 
               {mcMode === 'student_t' && (
-                <div className="space-y-2">
-                  <Label htmlFor="dfT">Degrees of Freedom</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="dfT" className="text-xs uppercase">Degrees Freedom</Label>
                   <Input
                     id="dfT"
                     type="number"
                     min={3}
                     value={dfT}
                     onChange={(e) => setDfT(parseInt(e.target.value))}
+                    className="h-8 text-sm mono"
                   />
                 </div>
               )}
             </div>
+          )}
+
+          {/* Compute Button */}
+          <div className="mt-4">
+            <Button
+              onClick={handleCompute}
+              disabled={isLoading}
+              className="w-full h-9 text-xs font-bold"
+            >
+              {isLoading ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <>
+                  <Calculator className="w-3 h-3 mr-2" />
+                  COMPUTE {metric.toUpperCase()}
+                </>
+              )}
+            </Button>
           </div>
-        )}
+        </GlassCard>
 
-        {/* Compute Button */}
-        <div className="mt-6">
-          <Button
-            onClick={handleCompute}
-            disabled={isLoading}
-            className="w-full md:w-auto"
-          >
-            {isLoading ? (
-              <LoadingSpinner size="sm" />
-            ) : (
-              <>
-                <Calculator className="w-4 h-4 mr-2" />
-                Compute {metric.toUpperCase()}
-              </>
-            )}
-          </Button>
+        {/* Results - 2/3 width */}
+        <div className="lg:col-span-2">
+          {error && (
+            <GlassCard>
+              <ErrorDisplay error={error} onRetry={handleCompute} />
+            </GlassCard>
+          )}
+
+          {data && <ResultsDisplay data={data} metric={metric} />}
+
+          {!data && !error && (
+            <GlassCard>
+              <EmptyState
+                icon={<Calculator size={32} className="text-muted-foreground" />}
+                title="No Results Yet"
+                description="Configure parameters and click Compute to calculate risk metrics"
+              />
+            </GlassCard>
+          )}
         </div>
-      </GlassCard>
-
-      {/* Error Display */}
-      {error && (
-        <ErrorDisplay error={error} onRetry={handleCompute} />
-      )}
-
-      {/* Results */}
-      {data && <ResultsDisplay data={data} metric={metric} />}
+      </div>
     </div>
   )
 }
@@ -248,73 +266,114 @@ function ResultsDisplay({
   data: VaRResponse | ESResponse
   metric: 'var' | 'es'
 }) {
-  const esData = 'es_dollars' in data ? data : null
+  // Safety check
+  if (!data) {
+    return (
+      <GlassCard>
+        <ErrorDisplay error={new Error('No data received')} />
+      </GlassCard>
+    )
+  }
+
+  const esData = ('es_dollars' in data && 'es_log_return' in data) ? (data as ESResponse) : null
+
+  // Debug log
+  console.log('ResultsDisplay - metric:', metric, 'data:', data, 'esData:', esData)
 
   return (
     <GlassCard>
-      <h3 className="text-lg font-semibold mb-4">Results</h3>
+      <h3 className="text-sm font-semibold mb-3 text-terminal-cyan mono">RESULTS</h3>
 
       {/* Summary Info */}
-      <div className="mb-6 text-sm text-muted-foreground">
+      <div className="mb-4 text-xs text-muted-foreground mono">
         <p>
-          Method: <span className="font-medium text-foreground">{data.method}</span> •
-          Confidence: <span className="font-medium text-foreground">{formatPercentage(data.confidence)}</span> •
-          Horizon: <span className="font-medium text-foreground">{data.horizon_days} days</span>
+          {data?.method || 'N/A'} • {data?.confidence ? formatPercentage(data.confidence) : 'N/A'} • {data?.horizon_days || 'N/A'}d
         </p>
         <p>
-          As of: <span className="font-medium text-foreground">{formatDate(data.as_of)}</span> •
-          Data as of: <span className="font-medium text-foreground">{formatDate(data.db_as_of)}</span>
+          {data?.as_of ? formatDate(data.as_of) : 'N/A'} • DB: {data?.db_as_of ? formatDate(data.db_as_of) : 'N/A'}
         </p>
       </div>
 
+      {/* What does this mean? */}
+      {data.confidence != null && data.horizon_days != null && data.var_dollars != null && data.var_log_return != null && (
+        <div className="mb-4 bg-primary/10 border border-primary/30 rounded p-3">
+          <h4 className="text-xs font-bold text-primary mb-2 uppercase">
+            INFO
+          </h4>
+          <div className="text-xs space-y-2">
+            {metric === 'var' ? (
+              <p className="text-foreground/90">
+                With <span className="mono">{formatPercentage(data.confidence)}</span> confidence, the portfolio's loss over{' '}
+                <span className="mono">{data.horizon_days} days</span> will not exceed{' '}
+                <span className="font-bold text-red-500 mono">{formatCurrency(data.var_dollars)}</span>{' '}
+                (<span className="mono">{formatPercentage(data.var_log_return)}</span>).
+              </p>
+            ) : (
+              esData && esData.es_dollars != null && esData.es_log_return != null && (
+                <p className="text-foreground/90">
+                  With <span className="mono">{formatPercentage(data.confidence)}</span> confidence, if losses exceed the VaR threshold over{' '}
+                  <span className="mono">{data.horizon_days} days</span>, the average loss would be about{' '}
+                  <span className="font-bold text-red-500 mono">{formatCurrency(esData.es_dollars)}</span>{' '}
+                  (<span className="mono">{formatPercentage(esData.es_log_return)}</span>).
+                </p>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <MetricCard
-          label="Portfolio Value"
+          label="Portfolio"
           value={formatCurrency(data.portfolio_value)}
         />
         <MetricCard
-          label="VaR (Dollars)"
+          label="VaR $"
           value={formatCurrency(data.var_dollars)}
           trend="down"
         />
         <MetricCard
-          label="VaR (Log Return)"
+          label="VaR %"
           value={formatPercentage(data.var_log_return)}
           trend="down"
         />
         {esData && (
-          <>
-            <MetricCard
-              label="ES (Dollars)"
-              value={formatCurrency(esData.es_dollars)}
-              trend="down"
-            />
-          </>
+          <MetricCard
+            label="ES $"
+            value={formatCurrency(esData.es_dollars)}
+            trend="down"
+          />
         )}
       </div>
 
       {/* Holdings Breakdown */}
       <div>
-        <h4 className="font-semibold mb-3">Holdings Breakdown</h4>
-        <div className="backdrop-blur-md bg-accent/10 border border-white/10 rounded-lg overflow-hidden">
-          <table className="w-full">
+        <h4 className="text-xs font-semibold mb-2 uppercase text-muted-foreground">Holdings</h4>
+        <div className="border border-border rounded overflow-hidden">
+          <table className="terminal-table">
             <thead>
-              <tr className="border-b border-border bg-accent/20">
-                <th className="text-left px-4 py-2 font-semibold text-sm">Symbol</th>
-                <th className="text-right px-4 py-2 font-semibold text-sm">Shares</th>
-                <th className="text-right px-4 py-2 font-semibold text-sm">Weight</th>
+              <tr>
+                <th>SYMBOL</th>
+                <th className="text-right">SHARES</th>
+                <th
+                  className="text-right"
+                  title="Position value as percentage of total portfolio value"
+                  style={{ cursor: 'help' }}
+                >
+                  PORTFOLIO WEIGHT
+                </th>
               </tr>
             </thead>
             <tbody>
               {data.holdings.map((holding) => (
-                <tr key={holding.symbol} className="border-b border-border last:border-0">
-                  <td className="px-4 py-2 font-medium">{holding.symbol}</td>
-                  <td className="px-4 py-2 text-right text-muted-foreground">
+                <tr key={holding.symbol}>
+                  <td className="font-bold text-terminal-cyan mono">{holding.symbol}</td>
+                  <td className="text-right data-cell">
                     {holding.shares.toLocaleString()}
                   </td>
-                  <td className="px-4 py-2 text-right text-muted-foreground">
-                    {formatPercentage(holding.weight)}
+                  <td className="text-right data-cell">
+                    {holding.weight != null ? formatPercentage(holding.weight) : 'N/A'}
                   </td>
                 </tr>
               ))}
