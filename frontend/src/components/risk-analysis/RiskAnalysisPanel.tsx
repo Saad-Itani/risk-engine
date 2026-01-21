@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, TrendingDown } from 'lucide-react'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useRiskAnalysis } from '../../api/hooks/useRiskAnalysis'
 import { GlassCard } from '../common/GlassCard'
@@ -16,6 +16,7 @@ import { RiskFactsDisplay } from './RiskFactsDisplay'
 import { ComponentVaRChart } from './ComponentVaRChart'
 import { ComponentVaRTable } from './ComponentVaRTable'
 import { BacktestResults } from './BacktestResults'
+import { TerminalDialog } from '../ui/terminal-dialog'
 
 /**
  * Comprehensive risk analysis panel with VaR decomposition, backtesting, and LLM recommendations
@@ -30,8 +31,19 @@ export function RiskAnalysisPanel() {
   const [lookbackDays, setLookbackDays] = useState(252)
   const [includeBacktest, setIncludeBacktest] = useState(true)
 
+  // Warning dialog state
+  const [showDiversityWarning, setShowDiversityWarning] = useState(false)
+
   const handleAnalyze = () => {
     const holdings = getHoldingsArray()
+
+    // Check for portfolio diversity - need at least 2 different assets
+    const uniqueSymbols = new Set(holdings.map(h => h.symbol))
+    if (uniqueSymbols.size < 2) {
+      setShowDiversityWarning(true)
+      return
+    }
+
     analyzeRisk({
       holdings,
       confidence,
@@ -256,6 +268,41 @@ export function RiskAnalysisPanel() {
           </div>
         </div>
       )}
+
+      {/* Portfolio Diversity Warning Dialog */}
+      <TerminalDialog
+        open={showDiversityWarning}
+        onClose={() => setShowDiversityWarning(false)}
+        title="INSUFFICIENT PORTFOLIO DIVERSIFICATION"
+        variant="warning"
+      >
+        <div className="space-y-5">
+          {/* Main Message */}
+          <div className="flex gap-4">
+            <TrendingDown className="w-6 h-6 text-warning flex-shrink-0 mt-1" />
+            <div className="flex-1 space-y-3">
+              <p className="text-base font-semibold text-foreground leading-tight">
+                Risk analysis requires a minimum of two distinct asset positions.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Your portfolio currently contains holdings of a single security. To perform comprehensive
+                risk decomposition, component VaR analysis, and correlation-based metrics, please add
+                positions in at least one additional asset class or security.
+              </p>
+            </div>
+          </div>
+
+          {/* Recommended Action Box */}
+          <div className="border-l-4 border-warning/40 bg-warning/5 pl-4 pr-4 py-3 rounded-r">
+            <p className="text-xs font-bold uppercase tracking-wider text-warning mb-2 mono">
+              RECOMMENDED ACTION
+            </p>
+            <p className="text-sm text-foreground/90 leading-relaxed">
+              Diversify holdings across multiple securities to enable portfolio risk analysis and cross-asset correlation assessment.
+            </p>
+          </div>
+        </div>
+      </TerminalDialog>
     </div>
   )
 }
