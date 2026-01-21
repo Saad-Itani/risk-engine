@@ -3,24 +3,51 @@ from backend.app.db import db
 from backend.app.models import Company
 
 # Edit this list whenever you want to add companies manually
+
+
 COMPANIES = [
     {
-        "symbol": "TSM",
-        "shortname": "Taiwan Semiconductor",
-        "longname": "Taiwan Semiconductor Manufacturing Company Limited",
-        "sector": "Technology",
-        "industry": "Semiconductors",
+        "symbol": "GLD",
+        "shortname": "SPDR Gold Shares",
+        "longname": "SPDR Gold Shares",
+        "sector": "ETF",
+        "industry": "Precious Metals",
         "is_active": True,
     },
     {
-        "symbol": "ASML",
-        "shortname": "ASML Holding",
-        "longname": "ASML Holding N.V.",
-        "sector": "Technology",
-        "industry": "Semiconductor Equipment",
+        "symbol": "SLV",
+        "shortname": "iShares Silver Trust",
+        "longname": "iShares Silver Trust",
+        "sector": "ETF",
+        "industry": "Precious Metals",
         "is_active": True,
-    }
+    },
+    {
+        "symbol": "SPY",
+        "shortname": "SPDR S&P 500 ETF",
+        "longname": "SPDR S&P 500 ETF Trust",
+        "sector": "ETF",
+        "industry": "Equity Index",
+        "is_active": True,
+    },
+    {
+        "symbol": "QQQ",
+        "shortname": "Invesco QQQ",
+        "longname": "Invesco QQQ Trust",
+        "sector": "ETF",
+        "industry": "Equity Index",
+        "is_active": True,
+    },
+    {
+        "symbol": "SNDK",
+        "shortname": "SanDisk",
+        "longname": "SanDisk Corporation",
+        "sector": "Technology",
+        "industry": "Data Storage",
+        "is_active": False,
+    },
 ]
+
 
 app = create_app()
 

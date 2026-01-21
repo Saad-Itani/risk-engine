@@ -71,11 +71,11 @@ if [ ! -d ".git" ]; then
     exit 1
 fi
 
-log_info "Fetching from remote..."
-git fetch origin
+log_info "skipping... Fetching from remote..."
+#git fetch origin
 
-log_info "Resetting to origin/main..."
-git reset --hard origin/main
+log_info "skipping ... Resetting to origin/main..."
+#git reset --hard origin/main
 
 log_success "Code updated to latest version"
 log_info "Current commit: $(git rev-parse --short HEAD) - $(git log -1 --pretty=%B | head -n 1)"
