@@ -15,7 +15,12 @@ def create_app():
     # Enable CORS for React frontend
     CORS(app, resources={
         r"/*": {
-            "origins": ["http://localhost:3000", "http://localhost:5173"],
+            "origins": [
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "https://risk.saaditani.com",
+                "http://risk.saaditani.com"
+            ],
             "methods": ["GET", "POST", "OPTIONS"],
             "allow_headers": ["Content-Type"]
         }

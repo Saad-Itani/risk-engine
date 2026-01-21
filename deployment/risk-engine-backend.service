@@ -1,0 +1,48 @@
+[Unit]
+Description=Risk Engine Flask Backend
+Documentation=https://github.com/your-repo/Risk_Engine
+After=network.target
+
+[Service]
+Type=notify
+User=risk-engine
+Group=risk-engine
+WorkingDirectory=/opt/risk-engine
+
+# Environment
+Environment="PATH=/opt/risk-engine/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/risk-engine/.env.production
+
+# Start command
+ExecStart=/opt/risk-engine/venv/bin/gunicorn \
+    --config /opt/risk-engine/deployment/gunicorn.conf.py \
+    --pythonpath /opt/risk-engine \
+    "backend.app:create_app()"
+
+# Reload command (graceful restart)
+ExecReload=/bin/kill -s HUP $MAINPID
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=5
+PrivateTmp=true
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/risk-engine /var/log/risk-engine
+PrivateDevices=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=risk-engine-backend
+
+[Install]
+WantedBy=multi-user.target

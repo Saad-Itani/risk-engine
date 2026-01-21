@@ -1,0 +1,31 @@
+# Risk Engine - Daily Price Refresh Cron Job
+#
+# Installation:
+#   sudo cp /opt/risk-engine/deployment/cron-refresh-prices /etc/cron.d/risk-engine-refresh
+#   sudo chmod 0644 /etc/cron.d/risk-engine-refresh
+#
+# This cron job runs the price refresh script daily at 6:30 AM
+# Market close is typically 4:00 PM ET, so 6:30 AM gives plenty of buffer
+# for end-of-day data to be available from the data provider (Stooq)
+
+# Format: minute hour day month weekday user command
+# Run at 6:30 AM every day
+30 6 * * * risk-engine /opt/risk-engine/venv/bin/python -m backend.scripts.refresh_prices >> /var/log/risk-engine/price-refresh.log 2>&1
+
+# Alternative schedules (uncomment one if preferred):
+
+# Run at 4:00 AM every day (earlier, might miss some data)
+# 0 4 * * * risk-engine /opt/risk-engine/venv/bin/python -m backend.scripts.refresh_prices >> /var/log/risk-engine/price-refresh.log 2>&1
+
+# Run at 8:00 AM every day (later, more buffer)
+# 0 8 * * * risk-engine /opt/risk-engine/venv/bin/python -m backend.scripts.refresh_prices >> /var/log/risk-engine/price-refresh.log 2>&1
+
+# Run only on weekdays (Mon-Fri) at 6:30 AM
+# 30 6 * * 1-5 risk-engine /opt/risk-engine/venv/bin/python -m backend.scripts.refresh_prices >> /var/log/risk-engine/price-refresh.log 2>&1
+
+# Notes:
+# - Logs are appended to /var/log/risk-engine/price-refresh.log
+# - The script handles retries and error logging internally
+# - If price fetch fails, the script will log the error but won't crash
+# - You can manually run the script anytime: sudo -u risk-engine /opt/risk-engine/venv/bin/python -m backend.scripts.refresh_prices
+# - To view recent logs: tail -f /var/log/risk-engine/price-refresh.log
