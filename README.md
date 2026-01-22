@@ -6,6 +6,8 @@
 ![Risk Analytics](https://img.shields.io/badge/Category-Risk%20Analytics-blue?style=for-the-badge)
 ![MIT License](https://img.shields.io/badge/License-MIT-cyan?style=for-the-badge)
 
+> **Live at [risk.saaditani.com](https://risk.saaditani.com)** • Try it now with no installation required
+
 ## 🎯 Purpose & Motivation
 
 Risk Engine was created out of **genuine interest in financial markets, quantitative analysis, and practical applications of data and finance**.
