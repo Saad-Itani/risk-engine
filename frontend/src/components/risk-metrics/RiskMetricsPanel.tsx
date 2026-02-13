@@ -311,8 +311,9 @@ function ResultsDisplay({
             ) : (
               esData && esData.es_dollars != null && esData.es_log_return != null && (
                 <p className="text-foreground/90">
-                  With <span className="mono">{formatPercentage(data.confidence)}</span> confidence, if losses exceed the VaR threshold over{' '}
-                  <span className="mono">{data.horizon_days} days</span>, the average loss would be about{' '}
+                  At the <span className="mono">{formatPercentage(data.confidence)}</span> level, the average loss in the worst{' '}
+                  <span className="mono">{formatPercentage(1 - data.confidence)}</span> of{' '}
+                  <span className="mono">{data.horizon_days}-day</span> outcomes is{' '}
                   <span className="font-bold text-red-500 mono">{formatCurrency(esData.es_dollars)}</span>{' '}
                   (<span className="mono">{formatPercentage(esData.es_log_return)}</span>).
                 </p>
