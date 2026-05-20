@@ -85,6 +85,16 @@ def _fetch_stooq_daily(
 
     r.raise_for_status()
 
+    # Validate the response looks like CSV before parsing.
+    # Stooq can return error text (e.g. "No data", HTML, or a multi-line message)
+    # instead of the expected "Date,Open,High,Low,Close,Volume" header.
+    first_line = text.strip().split("\n")[0] if text.strip() else ""
+    if not first_line or "," not in first_line:
+        raise RuntimeError(
+            f"Stooq returned non-CSV response for {symbol} "
+            f"(HTTP {r.status_code}): {text[:300]!r}"
+        )
+
     # Expected CSV header: Date,Open,High,Low,Close,Volume
     df = pd.read_csv(io.StringIO(text))
     if df.empty:
