@@ -3,21 +3,15 @@
 from __future__ import annotations
 
 import datetime as dt
-import io
 import time
 from dataclasses import dataclass
 from typing import Optional
 
 import pandas as pd
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+import yfinance as yf
 
 from backend.app.db import db
 from backend.app.models import Company, Price
-
-
-STOOQ_DAILY_URL = "https://stooq.com/q/d/l/"  # CSV endpoint
 
 
 @dataclass(frozen=True)
@@ -31,87 +25,32 @@ class PriceUpdateResult:
     errors: list[dict]
 
 
-def _make_session() -> requests.Session:
-    s = requests.Session()
-    retry = Retry(
-        total=4,
-        connect=4,
-        read=4,
-        backoff_factor=0.6,
-        status_forcelist=(429, 500, 502, 503, 504),
-        allowed_methods=("GET",),
-        raise_on_status=False,
-        respect_retry_after_header=True,
-    )
-    adapter = HTTPAdapter(max_retries=retry, pool_connections=20, pool_maxsize=20)
-    s.mount("https://", adapter)
-    s.headers.update({"User-Agent": "risk-engine/0.1 (+local dev)"})
-    return s
-
-
-def _stooq_symbol(symbol: str) -> str:
-    # Most US equities/ETFs on Stooq are like: aapl.us, spy.us
-    return f"{symbol.strip().lower()}.us"
-
-
-def _fetch_stooq_daily(
-    session: requests.Session,
+def _fetch_yfinance_daily(
     *,
     symbol: str,
     start_date: dt.date,
     end_date: dt.date,
-    timeout: tuple[float, float] = (5.0, 30.0),  # (connect, read)
 ) -> pd.DataFrame:
-    """
-    Returns DataFrame with columns: date, close (filtered to [start_date, end_date]).
-    Raises RuntimeError if Stooq daily limit is hit.
-    """
-    stooq_sym = _stooq_symbol(symbol)
+    """Returns DataFrame with columns: date, close (filtered to [start_date, end_date])."""
+    # yfinance end is exclusive, so add 1 day
+    hist = yf.Ticker(symbol).history(
+        start=start_date.strftime("%Y-%m-%d"),
+        end=(end_date + dt.timedelta(days=1)).strftime("%Y-%m-%d"),
+        auto_adjust=True,
+        raise_errors=False,
+    )
 
-    # Some Stooq servers ignore d1/d2; we pass them anyway and still filter locally.
-    params = {
-        "s": stooq_sym,
-        "i": "d",
-        "d1": start_date.strftime("%Y%m%d"),
-        "d2": end_date.strftime("%Y%m%d"),
-    }
-
-    r = session.get(STOOQ_DAILY_URL, params=params, timeout=timeout)
-    text = r.text or ""
-
-    # Stooq sometimes returns 200 with an error message in HTML/text
-    if "Exceeded daily hits limit" in text:
-        raise RuntimeError("STOOQ_DAILY_LIMIT")
-
-    r.raise_for_status()
-
-    # Validate the response looks like CSV before parsing.
-    # Stooq can return error text (e.g. "No data", HTML, or a multi-line message)
-    # instead of the expected "Date,Open,High,Low,Close,Volume" header.
-    first_line = text.strip().split("\n")[0] if text.strip() else ""
-    if not first_line or "," not in first_line:
-        raise RuntimeError(
-            f"Stooq returned non-CSV response for {symbol} "
-            f"(HTTP {r.status_code}): {text[:300]!r}"
-        )
-
-    # Expected CSV header: Date,Open,High,Low,Close,Volume
-    df = pd.read_csv(io.StringIO(text))
-    if df.empty:
+    if hist is None or hist.empty:
         return pd.DataFrame(columns=["date", "close"])
 
-    # Normalize columns defensively
-    cols = {c.strip().lower(): c for c in df.columns}
-    if "date" not in cols or "close" not in cols:
-        # sometimes Stooq returns a single column / unexpected content
-        raise RuntimeError(f"Unexpected Stooq response for {symbol}: columns={list(df.columns)}")
-
-    df = df.rename(columns={cols["date"]: "date", cols["close"]: "close"})[["date", "close"]]
+    df = hist[["Close"]].copy()
+    # Index may be timezone-aware — normalize to plain date
+    df.index = pd.to_datetime(df.index).tz_localize(None).normalize()
+    df = df.reset_index()
+    df.columns = ["date", "close"]
     df["date"] = pd.to_datetime(df["date"]).dt.date
     df["close"] = pd.to_numeric(df["close"], errors="coerce")
     df = df.dropna(subset=["date", "close"]).sort_values("date")
-
-    # Filter to requested window (even if server ignored d1/d2)
     df = df[(df["date"] >= start_date) & (df["date"] <= end_date)]
     return df.reset_index(drop=True)
 
@@ -154,8 +93,6 @@ def update_prices_from_stooq(
     )
     last_map: dict[str, Optional[dt.date]] = {sym: last_date for sym, last_date in last_rows}
 
-    session = _make_session()
-
     inserted_total = 0
     updated_syms = 0
     skipped_up_to_date = 0
@@ -181,7 +118,7 @@ def update_prices_from_stooq(
             print(f"[{idx}/{len(symbols)}] {sym}: fetching {start_date} -> {today} ...", flush=True)
 
         try:
-            df = _fetch_stooq_daily(session, symbol=sym, start_date=start_date, end_date=today)
+            df = _fetch_yfinance_daily(symbol=sym, start_date=start_date, end_date=today)
 
             if df.empty:
                 # nothing new (weekends / holidays / already current)
@@ -212,13 +149,6 @@ def update_prices_from_stooq(
                 print(f"    {sym}: inserted {len(objs)} rows (latest={new_dates[-1]}).")
 
         except RuntimeError as e:
-            if str(e) == "STOOQ_DAILY_LIMIT":
-                stopped_early = True
-                errors.append({"symbol": sym, "error": "Exceeded daily hits limit (Stooq)."})
-                if verbose:
-                    print(f"    {sym}: STOPPED (Exceeded daily hits limit).")
-                break
-
             failed += 1
             db.session.rollback()
             errors.append({"symbol": sym, "error": str(e)})
