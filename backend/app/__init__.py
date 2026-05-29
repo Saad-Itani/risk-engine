@@ -1,3 +1,9 @@
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from backend/ (one level up from backend/app/) regardless of CWD
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 from flask import Flask
 from flask_cors import CORS
 from .config import Config
@@ -7,6 +13,7 @@ from backend.app.routes.var import bp as var_bp
 from backend.app.routes.es import bp as es_bp
 from backend.app.routes.backtest import bp as backtest_bp
 from backend.app.routes.risk_analysis import bp as risk_analysis_bp
+from backend.app.routes.llm_recommendations import bp as llm_recommendations_bp
 
 def create_app():
     app = Flask(__name__)
@@ -32,4 +39,5 @@ def create_app():
     app.register_blueprint(es_bp)
     app.register_blueprint(backtest_bp, url_prefix="/risk/backtest")
     app.register_blueprint(risk_analysis_bp, url_prefix="/risk/analysis")
+    app.register_blueprint(llm_recommendations_bp, url_prefix="/risk/llm-recommendations")
     return app

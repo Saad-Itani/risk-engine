@@ -1,7 +1,6 @@
 import { AlertCircle, Sparkles, RefreshCw } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { cn } from '../../lib/utils'
 
 interface LLMRecommendationsProps {
   recommendations?: string
@@ -24,7 +23,7 @@ export function LLMRecommendations({
       <div className="terminal-card p-4">
         <div className="flex items-center gap-3 mb-3">
           <Sparkles className="w-5 h-5 text-primary animate-pulse" />
-          <h3 className="text-sm font-semibold text-terminal-cyan mono uppercase">AI-Powered Recommendations</h3>
+          <h3 className="text-sm font-semibold text-terminal-cyan mono uppercase">AI-Powered Analysis & Recommendations</h3>
         </div>
         <div className="space-y-2">
           <div className="h-3 bg-muted/50 rounded animate-pulse w-3/4"></div>
@@ -66,7 +65,7 @@ export function LLMRecommendations({
       <div className="terminal-card p-4">
         <div className="flex items-center gap-3 mb-2">
           <Sparkles className="w-5 h-5 text-primary" />
-          <h3 className="text-sm font-semibold text-terminal-cyan mono uppercase">AI-Powered Recommendations</h3>
+          <h3 className="text-sm font-semibold text-terminal-cyan mono uppercase">AI-Powered Analysis & Recommendations</h3>
         </div>
         <p className="text-xs text-muted-foreground">
           Enable LLM recommendations in the configuration to receive AI-powered portfolio insights and
@@ -81,25 +80,66 @@ export function LLMRecommendations({
       <div className="flex items-center gap-3 mb-3">
         <Sparkles className="w-5 h-5 text-primary" />
         <h3 className="text-sm font-semibold text-primary mono uppercase">
-          AI-Powered Recommendations
+          AI-Powered Analysis & Recommendations
         </h3>
       </div>
-      <div
-        className={cn(
-          'prose prose-sm dark:prose-invert max-w-none',
-          'prose-headings:text-foreground prose-headings:font-semibold prose-headings:mono',
-          'prose-p:text-foreground/90 prose-p:leading-relaxed prose-p:text-xs',
-          'prose-strong:text-foreground prose-strong:font-semibold',
-          'prose-ul:text-foreground/90 prose-ol:text-foreground/90 prose-ul:text-xs prose-ol:text-xs',
-          'prose-li:my-0.5',
-          'prose-code:text-primary prose-code:mono',
-          'prose-code:bg-primary/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded',
-          'prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-pre:text-xs',
-          'prose-blockquote:border-l-primary prose-blockquote:text-foreground/80',
-          'prose-a:text-primary prose-a:no-underline hover:prose-a:underline'
-        )}
-      >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{recommendations}</ReactMarkdown>
+      <div className="max-w-none">
+        {/*
+          Styles are applied via the `components` map below rather than `prose-*`
+          variants, because this project does NOT include @tailwindcss/typography.
+        */}
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            h2: ({ children }) => (
+              <h2 className="mono text-base font-bold text-primary underline decoration-primary/40 underline-offset-4 mt-5 mb-2 first:mt-0">
+                {children}
+              </h2>
+            ),
+            h1: ({ children }) => (
+              <h2 className="mono text-base font-bold text-primary underline decoration-primary/40 underline-offset-4 mt-5 mb-2 first:mt-0">
+                {children}
+              </h2>
+            ),
+            h3: ({ children }) => (
+              <h3 className="mono text-sm font-bold text-primary mt-4 mb-1.5">{children}</h3>
+            ),
+            p: ({ children }) => (
+              <p className="text-sm text-foreground leading-relaxed my-1.5">{children}</p>
+            ),
+            strong: ({ children }) => (
+              <strong className="font-semibold text-primary">{children}</strong>
+            ),
+            ul: ({ children }) => (
+              <ul className="list-disc pl-5 my-1.5 space-y-1 text-sm text-foreground">
+                {children}
+              </ul>
+            ),
+            ol: ({ children }) => (
+              <ol className="list-decimal pl-5 my-1.5 space-y-1 text-sm text-foreground">
+                {children}
+              </ol>
+            ),
+            li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+            code: ({ children }) => (
+              <code className="mono text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
+                {children}
+              </code>
+            ),
+            blockquote: ({ children }) => (
+              <blockquote className="border-l-2 border-primary/50 pl-3 my-2 text-xs italic text-foreground/60">
+                {children}
+              </blockquote>
+            ),
+            a: ({ children, href }) => (
+              <a href={href} className="text-primary no-underline hover:underline">
+                {children}
+              </a>
+            ),
+          }}
+        >
+          {recommendations}
+        </ReactMarkdown>
       </div>
     </div>
   )

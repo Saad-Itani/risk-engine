@@ -19,4 +19,7 @@ export const API_ENDPOINTS = {
 
   // Risk Analysis - Comprehensive analysis with component VaR
   RISK_ANALYSIS: '/risk/analysis',
+
+  // LLM Recommendations - AI assessment (separate call so results appear immediately)
+  LLM_RECOMMENDATIONS: '/risk/llm-recommendations',
 } as const

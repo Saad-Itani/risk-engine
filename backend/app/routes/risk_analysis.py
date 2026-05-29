@@ -11,8 +11,6 @@ from dataclasses import asdict
 from backend.app.models import Company
 from backend.app.services.price_loader import load_prices_df
 from backend.app.services.risk_analyzer import RiskAnalyzer
-from backend.app.services.llm_recommender import LLMRecommender
-import os
 bp = Blueprint("risk_analysis", __name__)
 
 
@@ -172,27 +170,7 @@ def analyze_risk():
             "db_as_of": db_as_of,
         }
 
-        llm_recommendations = None
-        llm_error = None
-
-        if include_llm_recommendations:
-            try:
-                recommender = LLMRecommender(
-                    model=os.getenv("OPENAI_MODEL", "gpt-5-nano-2025-08-07")
-                )
-                llm_recommendations = recommender.generate_recommendations(
-                    response_payload,
-                    custom_instructions=llm_custom_instructions,
-                    max_output_tokens=900,
-                    verbosity="low",
-                    reasoning_effort="minimal",
-                )
-            except Exception as e:
-                llm_error = str(e)
-
-        response_payload["llm_recommendations"] = llm_recommendations
-        response_payload["llm_error"] = llm_error
-
+        # LLM is handled by /risk/llm-recommendations so this endpoint stays fast
         return jsonify(response_payload)
 
     except ValueError as e:

@@ -18,7 +18,7 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-bloomberg mono tracking-tight">
               RISK_ENGINE
             </h1>
-            <span className="text-xs text-muted-foreground mono">v1.0</span>
+            <span className="text-xs text-muted-foreground mono">v1.1</span>
           </div>
           <button
             onClick={toggleTheme}

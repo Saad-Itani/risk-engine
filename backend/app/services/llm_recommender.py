@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
+import httpx
 from openai import OpenAI
 
 
@@ -11,7 +12,7 @@ class LLMRecommender:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "gpt-5-nano-2025-08-07",  # use the exact model name you tested in Postman
+        model: str = "gpt-5.4-nano",
         base_url: Optional[str] = None,
     ):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
@@ -20,7 +21,13 @@ class LLMRecommender:
 
         self.model = model
         self.base_url = self._normalize_base_url(base_url)
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        # trust_env=False bypasses SSL_CERT_FILE env var (broken in some conda envs)
+        # httpx falls back to its own bundled certifi certs instead
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            http_client=httpx.Client(verify=True, trust_env=False),
+        )
 
     @staticmethod
     def _normalize_base_url(base_url: Optional[str]) -> Optional[str]:
@@ -37,38 +44,53 @@ class LLMRecommender:
         custom_instructions: Optional[str] = None,
         *,
         max_output_tokens: int = 800,
-        verbosity: str = "low",          # "low" | "medium" | "high"
-        reasoning_effort: str = "minimal"  # "none" | "minimal" | "low" | "medium" | "high"
     ) -> str:
         instructions = self._build_system_prompt(custom_instructions)
         user_input = self._build_user_message(risk_analysis)
 
-        # GPT-5 family: use Responses API. :contentReference[oaicite:1]{index=1}
+        # GPT-5 family: use Responses API
+        # Note: reasoning/text.verbosity params are omitted — not supported on nano models
         resp = self.client.responses.create(
             model=self.model,
             instructions=instructions,
             input=user_input,
             max_output_tokens=max_output_tokens,
-            text={"verbosity": verbosity},
-            reasoning={"effort": reasoning_effort},
         )
 
         return (resp.output_text or "").strip()
 
     def _build_system_prompt(self, custom_instructions: Optional[str] = None) -> str:
-        base_prompt = """You are a professional portfolio risk analyst.
-You will receive risk metrics for a portfolio and must provide clear, actionable analysis.
+        base_prompt = """You are a portfolio risk advisor writing a short briefing for the investor who owns this portfolio.
 
-Your response must include:
-1) Risk Summary (2-3 sentences)
-2) Diversification & concentration (bullets)
-3) Implications (bullets)
-4) Recommendations (specific, actionable; name symbols; suggest approximate % weight changes)
+Your job is to interpret the risk metrics in plain English — explain what they mean, not just repeat them.
+Use "your portfolio", "you", make it personal and direct.
 
-Rules:
-- Only use the data provided (no guessing fundamentals/news).
-- Be calm and practical.
-- Use markdown.
+## Output format — follow exactly, including the ## headings and blank lines:
+
+## What this means for you
+
+2 sentences translating VaR and ES into plain language (e.g. "In a rough week, your portfolio could lose around X...").
+Then one sentence on the single biggest risk driver — explain *why* it matters, not just what it is.
+
+## What to watch out for
+
+- [risk implication, number in parentheses]
+- [risk implication, number in parentheses]
+- [risk implication, number in parentheses]
+
+## What to do
+
+- [action: what to change, how much, why in plain terms]
+- [action: what to change, how much, why in plain terms]
+- [action: what to change, how much, why in plain terms]
+
+## Rules
+- Use ## headings exactly as shown above — never use **bold** for section titles.
+- Each section must start on its own line, separated by a blank line.
+- 220 words maximum total.
+- Never start a sentence with a raw metric (e.g. do not write "VaR = $73.94"). Use numbers to support a point, not lead one.
+- No jargon without a brief plain-English explanation.
+- If the model is well-calibrated (Kupiec p > 0.05), add one sentence at the end about it.
 """
         if custom_instructions:
             base_prompt += "\n\nAdditional instructions:\n" + custom_instructions.strip()

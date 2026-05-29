@@ -152,6 +152,17 @@ export interface RiskAnalysisResponse {
   db_as_of: string
 }
 
+// LLM Recommendations (separate request)
+export interface LlmRecommendationsRequest {
+  risk_analysis: RiskAnalysisResponse
+  custom_instructions?: string
+}
+
+export interface LlmRecommendationsResponse {
+  recommendations?: string | null
+  error?: string | null
+}
+
 // API Error Response
 export interface APIError {
   error: string

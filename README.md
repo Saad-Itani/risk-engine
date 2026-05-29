@@ -78,11 +78,11 @@ The crown jewel of Risk Engine - comprehensive portfolio risk decomposition and 
 - **Calibration assessment** - is your model well-calibrated or over/under-estimating risk?
 - **Historical performance** - see how well VaR predictions held up historically
 
-**AI-Powered Recommendations (Coming Soon):**
-- LLM-generated portfolio insights and diversification suggestions
-- Risk reduction strategies tailored to your holdings
-- Position sizing recommendations
-- Natural language explanations of complex risk metrics
+**AI-Powered Analysis & Recommendations:**
+- Plain-English interpretation of your risk metrics — explains what the numbers *mean*, not just a restatement
+- Diversification, concentration, and correlation insights tailored to your specific holdings
+- Concrete, sized risk-reduction actions (e.g. "trim the top position by ~5–10% into a less-correlated holding")
+- Optional and opt-in — see [AI-Powered Analysis & Recommendations](#-ai-powered-analysis--recommendations) below for how it works
 
 ---
 
@@ -133,6 +133,40 @@ The UI is intentionally designed to evoke the Bloomberg Terminal:
 - **Data presentation:** Monospace formatting for alignment, color-coded risk levels
 
 This design choice reflects the app's **professional financial focus** and creates a familiar environment for finance practitioners.
+
+---
+
+## 🤖 AI-Powered Analysis & Recommendations
+
+Once the math is done, Risk Engine can hand the computed metrics to a large language model to produce a short, plain-English briefing — turning raw numbers like VaR, Expected Shortfall, concentration, and correlation into something you can actually act on.
+
+This feature is **optional and opt-in**: tick *"Include AI-Powered Analysis & Recommendations"* in the Risk Analysis panel before running an analysis.
+
+### What it produces
+The model returns a focused, three-part briefing (rendered as markdown):
+- **What this means for you** — VaR and ES translated into everyday language, plus the single biggest risk driver and *why* it matters
+- **What to watch out for** — the key risk implications (concentration, correlation, diversification gaps), each backed by a number
+- **What to do** — concrete, sized actions for reducing risk
+
+The prompt is deliberately constrained — capped length, no jargon without a plain explanation, and the model must *interpret* the metrics rather than simply repeat them.
+
+### How it works (and why it never blocks your results)
+The AI analysis runs as a **separate request** from the core risk calculation:
+
+1. You click **ANALYZE RISK** → the math endpoint returns instantly and the dashboard renders.
+2. The computed metrics are then sent to a dedicated `/risk/llm-recommendations` endpoint.
+3. While the model generates, the AI card shows a loading animation; the rest of your analysis is already on screen.
+
+This two-request split means the slow LLM call **never delays** the fast, deterministic risk results.
+
+### Model & configuration
+- Powered by the **OpenAI Responses API** through the official Python SDK.
+- The model is configurable via the `OPENAI_MODEL` environment variable; the project defaults to a small, low-cost model to keep the per-analysis cost negligible.
+- Set your key in `backend/.env` — copy `backend/.env.example` to get started.
+
+### Privacy & graceful degradation
+- Your OpenAI API key lives **only** in `backend/.env` on the server; it is never sent to or exposed in the frontend.
+- The feature **fails safe**: if the key is missing or the LLM call errors, the full quantitative analysis still renders normally, and the AI card simply shows an error with a **Retry** button.
 
 ---
 
@@ -278,7 +312,7 @@ Like all quantitative risk models, Risk Engine makes certain simplifying assumpt
   - pandas 2.3 (time series, returns)
   - SciPy 1.16 (statistical distributions)
 - **Market Data:** yfinance 1.0 (Yahoo Finance API)
-- **LLM Integration:** OpenAI Python SDK (GPT-4 for recommendations)
+- **LLM Integration:** OpenAI Python SDK (Responses API; model configurable via `OPENAI_MODEL`)
 - **Environment:** python-dotenv for configuration
 
 ### Risk Calculation Engine
@@ -331,8 +365,8 @@ python -m backend.scripts.load_companies
 # Backfill historical prices (may take 5-10 minutes)
 python -m backend.scripts.backfill_prices --days 1260
 
-# Create .env file
-echo "OPENAI_API_KEY=your_api_key_here" > .env  # Optional, for LLM features
+# Create your .env from the template (optional — needed only for AI features)
+cp .env.example .env   # then edit .env and set OPENAI_API_KEY (and optionally OPENAI_MODEL)
 ```
 
 #### 3. Frontend Setup
@@ -403,8 +437,8 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## 🎯 Future Roadmap
 
-### Near-Term (In Development)
-- ✅ **AI-Powered Recommendations** - LLM integration is almost complete, UI coming soon
+### Recently Shipped
+- ✅ **AI-Powered Analysis & Recommendations** — LLM-generated, plain-English risk briefings ([details above](#-ai-powered-analysis--recommendations))
 
 ---
 

@@ -42,8 +42,8 @@ KUPIEC_PVALUE_THRESHOLD = float(os.getenv("KUPIEC_PVALUE_THRESHOLD", "0.05"))
 
 # OpenAI API configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", None)  # Required for LLM recommendations
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # Default to cheapest/fastest (use gpt-5-nano when available)
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", None)  # Required for gpt-5-nano (custom endpoint)
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", None)
 
 # LLM generation parameters
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1000"))

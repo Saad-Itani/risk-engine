@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle, TrendingDown } from 'lucide-react'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useRiskAnalysis } from '../../api/hooks/useRiskAnalysis'
+import { useLlmRecommendations } from '../../api/hooks/useLlmRecommendations'
 import { GlassCard } from '../common/GlassCard'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -17,19 +18,30 @@ import { ComponentVaRChart } from './ComponentVaRChart'
 import { ComponentVaRTable } from './ComponentVaRTable'
 import { BacktestResults } from './BacktestResults'
 import { TerminalDialog } from '../ui/terminal-dialog'
+import { LLMRecommendations } from './LLMRecommendations'
 
 /**
  * Comprehensive risk analysis panel with VaR decomposition, backtesting, and LLM recommendations
  */
 export function RiskAnalysisPanel() {
   const { getHoldingsArray, hasHoldings } = usePortfolioStore()
-  const { mutate: analyzeRisk, data, isLoading, error, reset } = useRiskAnalysis()
+  const { mutate: analyzeRisk, data, isPending: isAnalyzing, error, reset } = useRiskAnalysis()
+  const {
+    mutate: fetchLlm,
+    data: llmData,
+    isPending: llmLoading,
+    error: llmError,
+    reset: llmReset,
+  } = useLlmRecommendations()
+
+  const isLoading = isAnalyzing
 
   // Configuration state
   const [confidence, setConfidence] = useState(0.95)
   const [horizonDays, setHorizonDays] = useState(5)
   const [lookbackDays, setLookbackDays] = useState(252)
   const [includeBacktest, setIncludeBacktest] = useState(true)
+  const [includeLlmRecommendations, setIncludeLlmRecommendations] = useState(false)
 
   // Warning dialog state
   const [showDiversityWarning, setShowDiversityWarning] = useState(false)
@@ -44,19 +56,31 @@ export function RiskAnalysisPanel() {
       return
     }
 
-    analyzeRisk({
-      holdings,
-      confidence,
-      horizon_days: horizonDays,
-      lookback_days: lookbackDays,
-      include_backtest: includeBacktest,
-      include_es: true, // Always include ES - it's a superior risk metric
-      include_llm_recommendations: false, // Disabled - Coming Soon
-    })
+    llmReset() // Clear previous LLM result immediately
+
+    analyzeRisk(
+      {
+        holdings,
+        confidence,
+        horizon_days: horizonDays,
+        lookback_days: lookbackDays,
+        include_backtest: includeBacktest,
+        include_es: true,
+      },
+      {
+        onSuccess: (analysisData) => {
+          // Fire LLM request immediately after analysis returns — doesn't block results
+          if (includeLlmRecommendations) {
+            fetchLlm({ risk_analysis: analysisData })
+          }
+        },
+      }
+    )
   }
 
   const handleRetry = () => {
     reset()
+    llmReset()
     handleAnalyze()
   }
 
@@ -139,25 +163,21 @@ export function RiskAnalysisPanel() {
             <Checkbox
               id="backtest"
               checked={includeBacktest}
-              onChange={(checked) => setIncludeBacktest(checked)}
+              onChange={(e) => setIncludeBacktest(e.target.checked)}
             />
             <Label htmlFor="backtest" className="cursor-pointer text-sm">
               Include Backtesting Validation (Kupiec Test)
             </Label>
           </div>
 
-          <div className="flex items-center gap-2 opacity-50">
+          <div className="flex items-center gap-2">
             <Checkbox
               id="llm"
-              checked={false}
-              onChange={() => {}}
-              disabled
+              checked={includeLlmRecommendations}
+              onChange={(e) => setIncludeLlmRecommendations(e.target.checked)}
             />
-            <Label htmlFor="llm" className="cursor-not-allowed">
-              Include AI-Powered Recommendations
-              <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full">
-                Coming Soon
-              </span>
+            <Label htmlFor="llm" className="cursor-pointer text-sm">
+              Include AI-Powered Analysis & Recommendations
             </Label>
           </div>
         </div>
@@ -183,11 +203,20 @@ export function RiskAnalysisPanel() {
       {error && (
         <GlassCard>
           <ErrorDisplay
-            title="Risk Analysis Failed"
-            message={error.message}
+            error={error.message || 'Risk analysis failed'}
             onRetry={handleRetry}
           />
         </GlassCard>
+      )}
+
+      {/* LLM Recommendations — fires after analysis returns, loads independently */}
+      {includeLlmRecommendations && (llmLoading || llmData || llmError) && (
+        <LLMRecommendations
+          recommendations={llmData?.recommendations ?? undefined}
+          error={llmData?.error ?? llmError?.message ?? undefined}
+          isLoading={llmLoading}
+          onRetry={() => data && fetchLlm({ risk_analysis: data })}
+        />
       )}
 
       {/* Results */}
@@ -232,26 +261,6 @@ export function RiskAnalysisPanel() {
               </div>
             </div>
           </GlassCard>
-
-          {/* LLM Recommendations - Coming Soon */}
-          <div className="terminal-card p-4 bg-primary/5">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-xl">🤖</span>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-primary mono uppercase">
-                  AI-Powered Recommendations
-                </h3>
-                <span className="inline-block mt-1 px-3 py-1 text-xs font-semibold bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full">
-                  Coming Soon
-                </span>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Get personalized portfolio recommendations powered by advanced AI analysis. This feature
-              will provide actionable insights on diversification, risk reduction strategies, and
-              position sizing based on your portfolio's unique risk profile.
-            </p>
-          </div>
 
           {/* Backtesting Results */}
           {includeBacktest && data.backtest && (
