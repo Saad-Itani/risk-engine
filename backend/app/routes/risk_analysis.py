@@ -114,6 +114,7 @@ def analyze_risk():
         # Parse parameters
         confidence = float(payload.get("confidence", 0.95))
         horizon_days = int(payload.get("horizon_days", 5))
+        lookback_days = int(payload.get("lookback_days", 252))
         include_backtest = bool(payload.get("include_backtest", False))
         include_es = bool(payload.get("include_es", True))
         include_llm_recommendations = bool(payload.get("include_llm_recommendations", False))
@@ -121,9 +122,10 @@ def analyze_risk():
         # Force pnl_model to "exp" (ignore any user-provided value for consistency)
         pnl_model = "exp"
 
-        # Load prices (use longer lookback if backtesting enabled)
-        lookback_days = 252 * 3 if include_backtest else 252
-        prices_df, db_as_of = load_prices_df(symbols, lookback_days=lookback_days)
+        # Load prices: need lookback_days for the current VaR/ES estimate, plus extra
+        # history for the backtest to walk forward across if backtesting is enabled.
+        load_lookback = lookback_days + 252 * 2 if include_backtest else lookback_days
+        prices_df, db_as_of = load_prices_df(symbols, lookback_days=load_lookback)
 
         # Run risk analysis
         analyzer = RiskAnalyzer(prices_df)
@@ -136,6 +138,7 @@ def analyze_risk():
             include_llm_recommendations=include_llm_recommendations,
             llm_custom_instructions=llm_custom_instructions,
             pnl_model=pnl_model,
+            lookback_days=lookback_days,
         )
 
         # Build response - trim components to save tokens (remove shares field)

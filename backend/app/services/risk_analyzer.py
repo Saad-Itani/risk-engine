@@ -107,6 +107,7 @@ class RiskAnalyzer:
         include_llm_recommendations: bool = False,  # Generate LLM recommendations
         llm_custom_instructions: Optional[str] = None,  # Custom LLM instructions
         pnl_model: PnlModel = "exp",
+        lookback_days: int = 252,  # History window for the current VaR/ES estimate + backtest re-estimation
     ) -> RiskAnalysisResult:
         """
         Perform risk analysis on portfolio using parametric VaR decomposition.
@@ -120,6 +121,9 @@ class RiskAnalyzer:
             include_llm_recommendations: Whether to generate LLM-powered recommendations (requires OPENAI_API_KEY)
             llm_custom_instructions: Optional custom instructions for LLM analysis
             pnl_model: P&L model (linear/exp)
+            lookback_days: How much trailing price history to use for the current
+                VaR/ES estimate (self.prices may hold more, to give the backtest
+                room to walk forward)
 
         Returns:
             RiskAnalysisResult with component breakdown, risk facts, and optional backtest/LLM recommendations
@@ -127,8 +131,14 @@ class RiskAnalyzer:
         Note:
             Always uses parametric method for clean, consistent risk decomposition.
         """
+        # Restrict to the trailing lookback_days window for the "as-of-today" estimate.
+        # self.prices may hold extra history beyond this so the backtest (below) has
+        # room to walk forward through past re-estimation dates.
+        analysis_prices = self.prices.tail(lookback_days) if lookback_days else self.prices
+        analysis_engine = RiskEngine(analysis_prices)
+
         # Step 1: Calculate VaR using parametric method with internals
-        var_result, internals = self.risk_engine.var(
+        var_result, internals = analysis_engine.var(
             holdings=holdings,
             method="parametric",
             confidence=confidence,
@@ -141,7 +151,7 @@ class RiskAnalyzer:
         es_result = None
         if include_es:
             try:
-                es_result = self.risk_engine.es(
+                es_result = analysis_engine.es(
                     holdings=holdings,
                     method="parametric",
                     confidence=confidence,
@@ -174,6 +184,7 @@ class RiskAnalyzer:
                     holdings=holdings,
                     confidence=confidence,
                     horizon_days=horizon_days,
+                    lookback_days=lookback_days,
                 )
             except Exception as e:
                 # Don't fail the entire analysis if backtesting fails
@@ -473,6 +484,7 @@ class RiskAnalyzer:
         holdings: Dict[str, float],
         confidence: float,
         horizon_days: int,
+        lookback_days: int = 252,
     ) -> BacktestSummary:
         """
         Run backtesting to validate risk model accuracy using parametric method.
@@ -481,6 +493,7 @@ class RiskAnalyzer:
             holdings: Portfolio holdings
             confidence: Confidence level
             horizon_days: Time horizon
+            lookback_days: Rolling re-estimation window size for the backtest
 
         Returns:
             BacktestSummary with breach rate and statistical tests
@@ -493,7 +506,7 @@ class RiskAnalyzer:
             method="parametric",
             confidence=confidence,
             horizon_days=horizon_days,
-            lookback_days=252,  # 1 year lookback
+            lookback_days=lookback_days,
             step=horizon_days,  # Non-overlapping tests
         )
 

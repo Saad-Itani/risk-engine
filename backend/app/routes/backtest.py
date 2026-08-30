@@ -120,9 +120,9 @@ def run_backtest():
         recent_breaches = breaches.tail(BACKTEST_RECENT_BREACHES_LIMIT)
 
         breach_list = []
-        for date, row in recent_breaches.iterrows():
+        for _, row in recent_breaches.iterrows():
             breach_list.append({
-                "date": str(date),
+                "date": str(row["as_of"]),
                 "realized_loss_dollars": float(row["realized_loss_dollars"]),
                 "var_dollars": float(row["var_dollars"]),
                 "excess_loss": float(row["realized_loss_dollars"] - row["var_dollars"]),
