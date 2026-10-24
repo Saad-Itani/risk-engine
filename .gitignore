@@ -27,7 +27,11 @@ instance/
 Thumbs.db
 
 # Temp files
-tmpclaude-*/
-tmpclaude-*-cwd
+tmpclaude-*
 
 frontend/.env.production
+
+# Claude Code, VibeWise notes, server logs
+.claude/
+.vibe-wise/
+logs/
