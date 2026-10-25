@@ -341,13 +341,13 @@ Like all quantitative risk models, Risk Engine makes certain simplifying assumpt
 
 #### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/risk-engine.git
+git clone https://github.com/Saad-Itani/risk-engine.git
 cd risk-engine
 ```
 
 #### 2. Backend Setup
 ```bash
-cd backend
+# Run everything from the repository root (the `python -m backend...` commands need it)
 
 # Create virtual environment
 python -m venv venv
@@ -362,16 +362,16 @@ python -m backend.scripts.init_db
 # Load company universe (500+ US stocks)
 python -m backend.scripts.load_companies
 
-# Backfill historical prices (may take 5-10 minutes)
-python -m backend.scripts.backfill_prices --days 1260
+# Backfill 5 years of history from Stooq (up to 250 tickers per run - run it again to continue)
+python -m backend.scripts.backfill_prices
 
 # Create your .env from the template (optional — needed only for AI features)
-cp .env.example .env   # then edit .env and set OPENAI_API_KEY (and optionally OPENAI_MODEL)
+cp backend/.env.example backend/.env   # then edit backend/.env and set OPENAI_API_KEY (and optionally OPENAI_MODEL)
 ```
 
 #### 3. Frontend Setup
 ```bash
-cd ../frontend
+cd frontend
 
 # Install dependencies
 npm install
@@ -384,7 +384,6 @@ echo "VITE_API_BASE_URL=http://localhost:5000" > .env.local
 
 #### Terminal 1 - Backend (Flask)
 ```bash
-cd backend
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 python -m flask --app backend.app run --port 5000
 ```
@@ -395,7 +394,7 @@ cd frontend
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
@@ -445,9 +444,10 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ## 🧪 Testing
 
 ### Backend Tests
+There is no automated test suite yet. `backend/scripts/test_*.py` are manual check scripts
+that run against your local database, from the repository root:
 ```bash
-cd backend
-python -m pytest tests/
+python -m backend.scripts.test_risk_engine
 ```
 
 ### Frontend Tests (Coming Soon)
@@ -461,7 +461,7 @@ npm test
 ## 📊 Data & Privacy
 
 ### Market Data
-- **Source:** Stooq via `pandas_datareader`
+- **Source:** Yahoo Finance via `yfinance` (daily refresh); the initial history was seeded from Stooq
 - **Coverage:** 500+ US stocks (S&P 500 + high-liquidity names)
 - **Update Frequency:** Daily price updates (configurable via cron or manual refresh)
 - **Historical Depth:** Up to 5 years (1260 trading days)
@@ -501,7 +501,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 **Libraries & Tools:**
 - React, Vite, Tailwind CSS, TanStack Query - modern frontend stack
 - Flask, NumPy, pandas, SciPy - Python data science ecosystem
-- stooq - for democratizing access to market data
+- Yahoo Finance (via yfinance) and Stooq - for market data
 - OpenAI - for LLM-powered insights
 
 ---

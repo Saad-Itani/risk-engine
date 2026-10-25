@@ -55,7 +55,7 @@ def _fetch_yfinance_daily(
     return df.reset_index(drop=True)
 
 
-def update_prices_from_stooq(
+def update_prices(
     *,
     symbols: Optional[list[str]] = None,
     pause_seconds: float = 0.10,
@@ -68,7 +68,7 @@ def update_prices_from_stooq(
     - If symbols is None: uses Company.symbol from DB.
     - Fetches only missing dates per symbol (start = last_date+1).
     - Uses timeouts/retries and prints progress.
-    - Stops early if Stooq daily limit is hit.
+    - Prices come from Yahoo Finance via yfinance.
     """
     today = dt.date.today()
 
@@ -137,7 +137,7 @@ def update_prices_from_stooq(
                 .delete(synchronize_session=False)
             )
 
-            objs = [Price(symbol=sym, date=d, close=float(c)) for d, c in zip(df["date"], df["close"])]
+            objs = [Price(symbol=sym, date=d, close=float(c), source="yfinance") for d, c in zip(df["date"], df["close"])]
 
             db.session.bulk_save_objects(objs)
             db.session.commit()

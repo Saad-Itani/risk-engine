@@ -6,7 +6,7 @@
 #
 # This cron job runs the price refresh script daily at 6:30 AM
 # Market close is typically 4:00 PM ET, so 6:30 AM gives plenty of buffer
-# for end-of-day data to be available from the data provider (Stooq)
+# for end-of-day data to be available from the data provider (Yahoo Finance via yfinance)
 
 # Format: minute hour day month weekday user command
 # Run at 6:30 AM every day
